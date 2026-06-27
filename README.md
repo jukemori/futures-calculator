@@ -26,6 +26,12 @@ Everything is client-side, instant, and ships as static files. No backend, no qu
 3. **Honest breakdown** — what each plan actually pays: runner-hits, partial-then-stall (with a
    break-even toggle that flips the whole risk story), and full-stop — each in R and dollars.
 
+New to the jargon? A **How it works** button in the header opens a plain-language explainer (the
+two-step flow + a mini glossary of _R_, _partial_, _runner_, _runner TP_), and small **ⓘ hints**
+sit beside each Exit-plan field with an at-a-glance definition. Both stay out of the way — the
+explainer is hidden by default and the hints only appear on hover/focus/tap — so the dense layout
+is unchanged for repeat users.
+
 See [`DESIGN.md`](./DESIGN.md) for the full rationale, formulas, and worked examples.
 
 ## Tech stack
@@ -69,6 +75,7 @@ pnpm dev          # http://localhost:3000
 ```
 src/
   app/          layout, globals.css (theme tokens), page.tsx (composition + state)
-  components/   sizing-card, exit-card, stepper, number-field, … + ui/ (shadcn primitives)
+  components/   sizing-card, exit-card, stepper, number-field, how-it-works (onboarding
+                explainer), info-hint (ⓘ tooltip), … + ui/ (shadcn primitives, incl. tooltip)
   lib/          calc.ts (all math), contracts.ts (lookup table), format.ts, storage.ts
 ```

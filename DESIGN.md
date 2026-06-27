@@ -310,6 +310,18 @@ Optional third row, shown only when `entryPrice` is filled:
   laptop the whole tool fits one screen (§5.1) so you never scroll while sizing next to a chart.
 - **Presets.** One-tap chips for your real habits: `50% @ 0.8R`, `60% @ 0.8R`, `Runner only`. Each sets
   `a`, `k`, `T` in one tap.
+- **Onboarding without clutter.** The tool is dense on purpose, but the jargon (R, partial, runner,
+  runner TP) is opaque to a first-timer. Two opt-in layers carry the mental model without taxing the
+  daily user:
+  - **"How it works" explainer** (`HowItWorks`) — a dismissible panel with the two-step flow in plain
+    English plus a mini glossary. **Hidden by default**, opened from a header **How it works** button;
+    the open/closed choice persists (`help` key, §6.3) so it never reappears uninvited.
+  - **Inline ⓘ hints** (`InfoHint`, a shadcn `Tooltip`) beside the jargon-bearing labels — _Take off @
+    (R)_, _Contracts off_, _Target RR_, the _Runner TP_ hero, _Stop → break-even_, and the outcome
+    breakdown. Definitions are one hover/focus/tap away and add zero permanent height. `NumberField` and
+    `Stepper` take an optional `hint` slot rendered next to the label.
+  - Empty/disabled states read as guidance, not errors: the unsized result panel says
+    _"Enter a contract, risk \$ and stop distance to size your position."_ rather than a bare `—`.
 
 ### 5.3 Visual direction & component system
 
@@ -409,8 +421,9 @@ The whole app state is ~10 fields — plain `useState`, no Redux/Zustand.
 
 ### 6.3 Persistence
 
-Everything worth remembering between sessions persists: all ~10 inputs **and** the theme choice — the
-trader reopens exactly where they left off.
+Everything worth remembering between sessions persists: all ~10 inputs, the theme choice, **and** the
+"how it works" panel's dismissed state (`help`) — the trader reopens exactly where they left off, and
+the explainer never reappears once dismissed.
 
 - One `usePersistentState(field, default)` hook backs every value, stored under a single JSON key
   (`futures-calculator:v1`).
@@ -433,13 +446,15 @@ src/
     page.tsx              // composition + state + clear; wires cards together
   components/
     ui/                   // shadcn primitives (copied in): button, input, label,
-                          //   select, card, switch, toggle-group, badge
+                          //   select, card, switch, toggle-group, badge, tooltip
     SizingCard.tsx        // composes ui/* into Stage 1
     ExitCard.tsx          // presets, stepper, BE switch, hero, breakdown, prices
     OutcomeRow.tsx        // one labeled gain/loss row, semantic color
     ContractSelect.tsx    // wraps ui/select
-    Stepper.tsx           // ui/button + ui/input integer stepper for k
-    NumberField.tsx       // ui/label + ui/input
+    Stepper.tsx           // ui/button + ui/input integer stepper for k (optional hint slot)
+    NumberField.tsx       // ui/label + ui/input (optional hint slot)
+    HowItWorks.tsx        // dismissible first-timer explainer (flow + glossary), header-toggled
+    InfoHint.tsx          // ⓘ icon + ui/tooltip — inline definition for a jargon label
     ThemeToggle.tsx       // light/dark, persisted
   lib/
     calc.ts               // computeSizing, computeExit — ALL math here
