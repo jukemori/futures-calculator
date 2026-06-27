@@ -1,65 +1,156 @@
-import Image from "next/image";
+'use client';
+
+import { computeExit, computeSizing } from '@/lib/calc';
+import { DEFAULT_CONTRACT } from '@/lib/contracts';
+import { usePersistentState } from '@/lib/storage';
+import { SizingCard } from '@/components/sizing-card';
+import { ExitCard, type Preset } from '@/components/exit-card';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { Button } from '@/components/ui/button';
+
+// Parse a free-text field, falling back to a default when blank/invalid.
+const numOr = (s: string, fallback: number) => {
+  const n = Number.parseFloat(s);
+  return Number.isFinite(n) ? n : fallback;
+};
 
 export default function Home() {
+  // All inputs persist so the trader reopens where they left off (§6.3).
+  const [contractSymbol, setContract] = usePersistentState('contract', DEFAULT_CONTRACT);
+  const [riskStr, setRisk] = usePersistentState('risk', '');
+  const [stopStr, setStop] = usePersistentState('stop', '');
+  const [totalStr, setTotal] = usePersistentState('total', ''); // '' → use sizing
+  const [partialContracts, setPartial] = usePersistentState('k', 0);
+  const [partialLevelStr, setPartialLevel] = usePersistentState('a', '0.8');
+  const [targetRRStr, setTargetRR] = usePersistentState('t', '1.0');
+  const [stopToBreakeven, setStopBE] = usePersistentState('be', false);
+  const [entryStr, setEntry] = usePersistentState('entry', '');
+  const [direction, setDirection] = usePersistentState<'long' | 'short'>('dir', 'long');
+
+  // Results are derived, never stored. React Compiler memoizes these pure
+  // derivations automatically — no manual useMemo needed (DESIGN.md §6.2).
+  const sizing = computeSizing({
+    contractSymbol,
+    riskDollars: Number.parseFloat(riskStr),
+    stopPoints: Number.parseFloat(stopStr),
+  });
+
+  // Effective total contracts: explicit override, else the sized count.
+  const usingSizedTotal = totalStr.trim() === '';
+  const effectiveTotal = usingSizedTotal
+    ? sizing.contracts
+    : Math.max(0, Math.floor(numOr(totalStr, 0)));
+
+  // Keep k within 0…C for both display and calc.
+  const k = Math.min(partialContracts, Math.max(0, effectiveTotal));
+
+  // The exit plan is a pure function of the sizing context (contract → $/pt → R$,
+  // stop, and contract count), so selecting a contract or editing risk/stop flows
+  // straight through to the runner TP and every dollar outcome.
+  const exit = computeExit(
+    {
+      totalContracts: effectiveTotal,
+      partialContracts: k,
+      partialLevelR: numOr(partialLevelStr, 0.8),
+      targetRR: numOr(targetRRStr, 1),
+      stopToBreakeven,
+      entryPrice: entryStr.trim() !== '' ? numOr(entryStr, NaN) : undefined,
+      direction,
+    },
+    { dollarPerPoint: sizing.dollarPerPoint, stopPoints: Number.parseFloat(stopStr) },
+  );
+
+  const applyPreset = (p: Preset) => {
+    setPartialLevel(String(p.a));
+    setTargetRR(String(p.t));
+    setPartial(Math.min(effectiveTotal, Math.max(0, Math.round(p.fraction * effectiveTotal))));
+  };
+
+  const isDirty =
+    riskStr !== '' ||
+    stopStr !== '' ||
+    totalStr !== '' ||
+    entryStr !== '' ||
+    partialContracts !== 0;
+
+  const clearAll = () => {
+    setContract(DEFAULT_CONTRACT);
+    setRisk('');
+    setStop('');
+    setTotal('');
+    setPartial(0);
+    setPartialLevel('0.8');
+    setTargetRR('1.0');
+    setStopBE(false);
+    setEntry('');
+    setDirection('long');
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-4 py-5 lg:h-dvh lg:overflow-hidden lg:py-6">
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight sm:text-xl">
+            Futures Risk + Runner&nbsp;TP
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
+            Size by risk, then solve the runner take-profit that holds your target RR after a
+            partial.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={clearAll}
+            disabled={!isDirty}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            Clear
+          </Button>
+          <ThemeToggle />
         </div>
-      </main>
-    </div>
+      </header>
+
+      {/* Mobile: stacked & scrollable. Desktop: two columns sized to fit the
+          viewport so the whole tool is visible at once (§5.1). */}
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(320px,380px)_1fr]">
+        <SizingCard
+          contractSymbol={contractSymbol}
+          riskStr={riskStr}
+          stopStr={stopStr}
+          onContract={setContract}
+          onRisk={setRisk}
+          onStop={setStop}
+          result={sizing}
+        />
+
+        <ExitCard
+          contractSymbol={contractSymbol}
+          totalContracts={effectiveTotal}
+          totalStr={totalStr}
+          usingSizedTotal={usingSizedTotal}
+          sizingContracts={sizing.contracts}
+          partialContracts={k}
+          partialLevelStr={partialLevelStr}
+          targetRRStr={targetRRStr}
+          stopToBreakeven={stopToBreakeven}
+          entryStr={entryStr}
+          direction={direction}
+          dollarPerPoint={sizing.dollarPerPoint}
+          riskPerContract={sizing.riskPerContract}
+          result={exit}
+          onTotal={setTotal}
+          onPartial={setPartial}
+          onPartialLevel={setPartialLevel}
+          onTargetRR={setTargetRR}
+          onStopToBreakeven={setStopBE}
+          onEntry={setEntry}
+          onDirection={setDirection}
+          onPreset={applyPreset}
+        />
+      </div>
+    </main>
   );
 }
