@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { InfoHint } from './info-hint';
 import { NumberField } from './number-field';
 import { OutcomeRow } from './outcome-row';
 import { Stepper } from './stepper';
@@ -113,6 +114,12 @@ export function ExitCard(props: Props) {
             onChange={props.onTotal}
             placeholder={String(sizingContracts)}
             inputMode="numeric"
+            hint={
+              <InfoHint label="Total contracts">
+                How many contracts you’re trading. Pulled from your sizing in step ① — type a number
+                here to override it.
+              </InfoHint>
+            }
           />
           <NumberField
             label="Take off @ (R)"
@@ -120,6 +127,12 @@ export function ExitCard(props: Props) {
             onChange={props.onPartialLevel}
             suffix="R"
             placeholder="0.8"
+            hint={
+              <InfoHint label="Take off @ (R)">
+                Where you take the partial profit, measured in R. 0.8R means closing at 80% of your
+                stop distance in your favor.
+              </InfoHint>
+            }
           />
           <Stepper
             label="Contracts off"
@@ -129,6 +142,12 @@ export function ExitCard(props: Props) {
             onChange={onPartial}
             disabled={disabled}
             derived={formatPct(result.partialFraction)}
+            hint={
+              <InfoHint label="Contracts off">
+                How many contracts to close at the partial. The rest become your runner. The % is
+                shown, not chosen — you can’t split a whole micro.
+              </InfoHint>
+            }
           />
           <NumberField
             label="Target RR"
@@ -136,6 +155,12 @@ export function ExitCard(props: Props) {
             onChange={props.onTargetRR}
             suffix="R"
             placeholder="1.0"
+            hint={
+              <InfoHint label="Target RR">
+                Your goal reward-to-risk for the whole trade if the runner hits. 1.0R is a true 1:1
+                — you make what you risked.
+              </InfoHint>
+            }
           />
         </div>
 
@@ -143,6 +168,10 @@ export function ExitCard(props: Props) {
         <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
           <Label htmlFor={beId} className="text-sm font-normal text-muted-foreground">
             Stop → break-even after partial
+            <InfoHint label="Stop → break-even after partial">
+              Once the partial fills, move your stop to entry. Your worst case turns from a loss
+              into the profit you already locked in.
+            </InfoHint>
           </Label>
           <Switch
             id={beId}
@@ -154,8 +183,12 @@ export function ExitCard(props: Props) {
 
         {/* hero — the runner TP is why they opened the app (§5.2) */}
         <div className="rounded-lg bg-muted px-4 py-3">
-          <div className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
+          <div className="flex items-center gap-2 text-xs font-medium tracking-widest text-muted-foreground uppercase">
             Runner TP
+            <InfoHint label="Runner TP">
+              Where to set the take-profit for your runner contracts (in R) so the whole trade still
+              hits your target RR after the partial. This is the number the app exists to find.
+            </InfoHint>
           </div>
           {disabled ? (
             <p className="mt-1 text-sm text-muted-foreground/80">
@@ -182,6 +215,13 @@ export function ExitCard(props: Props) {
         {/* honest breakdown — visible by default, not behind an expander (§5.2) */}
         {!disabled ? (
           <div className="rounded-lg border px-4 py-2">
+            <div className="flex items-center gap-2 pt-1 pb-1.5 text-xs font-medium tracking-wide text-muted-foreground/80 uppercase">
+              What each outcome pays
+              <InfoHint label="What each outcome pays">
+                The honest picture — not just the win. “Partial + stall” is when your partial fills
+                but price reverses to your stop before the runner hits.
+              </InfoHint>
+            </div>
             {result.hasRunner ? (
               <OutcomeRow
                 label="If runner hits"

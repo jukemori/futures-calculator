@@ -12,6 +12,8 @@ type Props = {
   placeholder?: string;
   inputMode?: 'decimal' | 'numeric';
   step?: string;
+  /** Optional info hint rendered next to the label (e.g. an <InfoHint />). */
+  hint?: React.ReactNode;
 };
 
 /** Labeled free-text numeric input (shadcn Input + Label). Stored as a string
@@ -24,12 +26,14 @@ export function NumberField({
   placeholder,
   inputMode = 'decimal',
   step,
+  hint,
 }: Props) {
   const id = useId();
   return (
     <div className="grid gap-1.5">
       <Label htmlFor={id} className="text-muted-foreground">
         {label}
+        {hint}
       </Label>
       <div className="relative">
         <Input

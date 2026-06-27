@@ -5,8 +5,10 @@ import { DEFAULT_CONTRACT } from '@/lib/contracts';
 import { usePersistentState } from '@/lib/storage';
 import { SizingCard } from '@/components/sizing-card';
 import { ExitCard, type Preset } from '@/components/exit-card';
+import { HowItWorks } from '@/components/how-it-works';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
+import { HelpCircle } from 'lucide-react';
 
 // Parse a free-text field, falling back to a default when blank/invalid.
 const numOr = (s: string, fallback: number) => {
@@ -26,6 +28,10 @@ export default function Home() {
   const [stopToBreakeven, setStopBE] = usePersistentState('be', false);
   const [entryStr, setEntry] = usePersistentState('entry', '');
   const [direction, setDirection] = usePersistentState<'long' | 'short'>('dir', 'long');
+
+  // The "how it works" explainer is hidden by default and opened from the
+  // header button; the open/closed choice persists across sessions.
+  const [helpDismissed, setHelpDismissed] = usePersistentState('help', true);
 
   // Results are derived, never stored. React Compiler memoizes these pure
   // derivations automatically — no manual useMemo needed (DESIGN.md §6.2).
@@ -103,6 +109,18 @@ export default function Home() {
             type="button"
             variant="outline"
             size="sm"
+            className="h-9 gap-1.5"
+            onClick={() => setHelpDismissed(false)}
+            disabled={!helpDismissed}
+            title="Show how this works"
+          >
+            <HelpCircle className="size-4" />
+            <span className="hidden sm:inline">How it works</span>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             className="h-9"
             onClick={clearAll}
             disabled={!isDirty}
@@ -112,6 +130,8 @@ export default function Home() {
           <ThemeToggle />
         </div>
       </header>
+
+      {!helpDismissed ? <HowItWorks onClose={() => setHelpDismissed(true)} /> : null}
 
       {/* Mobile: stacked & scrollable. Desktop: two columns sized to fit the
           viewport so the whole tool is visible at once (§5.1). */}
