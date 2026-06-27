@@ -2,6 +2,8 @@
 
 A single-screen tool for discretionary futures traders. Size a position by dollar risk, then solve
 the one question a sizing spreadsheet never answers:
+<img width="1262" height="862" alt="image" src="https://github.com/user-attachments/assets/eee18029-2a29-4109-aaa9-31d327e4562e" />
+
 
 > Given a partial taken at `a`R, where does the **runner take-profit** go to hold a target blended RR?
 
