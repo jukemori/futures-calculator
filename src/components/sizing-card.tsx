@@ -50,7 +50,7 @@ export function SizingCard({
             placeholder="1200"
           />
           <NumberField
-            label="Stop"
+            label="Stop Distance"
             value={stopStr}
             onChange={onStop}
             suffix="pts"
@@ -86,10 +86,9 @@ export function SizingCard({
               </div>
             </div>
           ) : (
-            <div className="flex items-baseline gap-2">
-              <span className="font-mono text-4xl font-bold text-muted-foreground/60">—</span>
-              <span className="text-sm text-muted-foreground">enter contract, risk $ and stop</span>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Enter a contract, risk $ and stop distance to size your position.
+            </p>
           )}
         </div>
       </CardContent>
