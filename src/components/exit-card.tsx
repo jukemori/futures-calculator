@@ -24,10 +24,7 @@ export const PRESETS = [
 
 type Props = {
   contractSymbol: ContractSymbol;
-  totalContracts: number; // effective C
-  totalStr: string; // override input ('' → use sizing)
-  usingSizedTotal: boolean;
-  sizingContracts: number;
+  totalContracts: number; // effective C — driven by sizing (①)
   partialContracts: number; // k
   partialLevelStr: string; // a
   targetRRStr: string; // T
@@ -37,7 +34,6 @@ type Props = {
   dollarPerPoint: number;
   riskPerContract: number; // R$
   result: ExitResult;
-  onTotal: (s: string) => void;
   onPartial: (n: number) => void;
   onPartialLevel: (s: string) => void;
   onTargetRR: (s: string) => void;
@@ -51,9 +47,6 @@ export function ExitCard(props: Props) {
   const {
     contractSymbol,
     totalContracts: C,
-    totalStr,
-    usingSizedTotal,
-    sizingContracts,
     partialContracts: k,
     partialLevelStr,
     targetRRStr,
@@ -107,20 +100,29 @@ export function ExitCard(props: Props) {
           ))}
         </div>
 
+        {/* total contracts — a shown value, not an input: it's driven entirely
+            by your sizing in ① and updates live as risk/stop change (§5.2) */}
+        <div className="rounded-lg bg-muted px-4 py-3">
+          <div className="flex items-center gap-2 text-xs font-medium tracking-widest text-muted-foreground uppercase">
+            Total contracts
+            <InfoHint label="Total contracts">
+              How many contracts the whole plan is built on. Set by your sizing in step ① — change
+              Risk $ or Stop there and this updates.
+            </InfoHint>
+          </div>
+          {C > 0 ? (
+            <div className="flex items-baseline gap-3">
+              <span className="font-mono text-5xl font-bold tabular-nums">{C}</span>
+              <span className="text-sm text-muted-foreground">
+                {C === 1 ? 'contract' : 'contracts'} · from ①
+              </span>
+            </div>
+          ) : (
+            <p className="mt-1 text-sm text-muted-foreground/80">size a position in ① →</p>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
-          <NumberField
-            label={usingSizedTotal ? 'Total contracts · from ①' : 'Total contracts'}
-            value={totalStr}
-            onChange={props.onTotal}
-            placeholder={String(sizingContracts)}
-            inputMode="numeric"
-            hint={
-              <InfoHint label="Total contracts">
-                How many contracts you’re trading. Pulled from your sizing in step ① — type a number
-                here to override it.
-              </InfoHint>
-            }
-          />
           <NumberField
             label="Take off @ (R)"
             value={partialLevelStr}
@@ -131,21 +133,6 @@ export function ExitCard(props: Props) {
               <InfoHint label="Take off @ (R)">
                 Where you take the partial profit, measured in R. 0.8R means closing at 80% of your
                 stop distance in your favor.
-              </InfoHint>
-            }
-          />
-          <Stepper
-            label="Contracts off"
-            value={k}
-            min={0}
-            max={Math.max(0, C)}
-            onChange={onPartial}
-            disabled={disabled}
-            derived={formatPct(result.partialFraction)}
-            hint={
-              <InfoHint label="Contracts off">
-                How many contracts to close at the partial. The rest become your runner. The % is
-                shown, not chosen — you can’t split a whole micro.
               </InfoHint>
             }
           />
@@ -163,6 +150,22 @@ export function ExitCard(props: Props) {
             }
           />
         </div>
+
+        <Stepper
+          label="Contracts off"
+          value={k}
+          min={0}
+          max={Math.max(0, C)}
+          onChange={onPartial}
+          disabled={disabled}
+          derived={formatPct(result.partialFraction)}
+          hint={
+            <InfoHint label="Contracts off">
+              How many contracts to close at the partial. The rest become your runner. The % is
+              shown, not chosen — you can’t split a whole micro.
+            </InfoHint>
+          }
+        />
 
         {/* break-even toggle — flips the entire risk story (§3.4 / §5.2) */}
         <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">

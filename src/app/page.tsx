@@ -21,7 +21,6 @@ export default function Home() {
   const [contractSymbol, setContract] = usePersistentState('contract', DEFAULT_CONTRACT);
   const [riskStr, setRisk] = usePersistentState('risk', '');
   const [stopStr, setStop] = usePersistentState('stop', '');
-  const [totalStr, setTotal] = usePersistentState('total', ''); // '' → use sizing
   const [partialContracts, setPartial] = usePersistentState('k', 0);
   const [partialLevelStr, setPartialLevel] = usePersistentState('a', '0.8');
   const [targetRRStr, setTargetRR] = usePersistentState('t', '1.0');
@@ -41,11 +40,8 @@ export default function Home() {
     stopPoints: Number.parseFloat(stopStr),
   });
 
-  // Effective total contracts: explicit override, else the sized count.
-  const usingSizedTotal = totalStr.trim() === '';
-  const effectiveTotal = usingSizedTotal
-    ? sizing.contracts
-    : Math.max(0, Math.floor(numOr(totalStr, 0)));
+  // Total contracts is driven entirely by sizing (①) — no override here.
+  const effectiveTotal = sizing.contracts;
 
   // Keep k within 0…C for both display and calc.
   const k = Math.min(partialContracts, Math.max(0, effectiveTotal));
@@ -72,18 +68,12 @@ export default function Home() {
     setPartial(Math.min(effectiveTotal, Math.max(0, Math.round(p.fraction * effectiveTotal))));
   };
 
-  const isDirty =
-    riskStr !== '' ||
-    stopStr !== '' ||
-    totalStr !== '' ||
-    entryStr !== '' ||
-    partialContracts !== 0;
+  const isDirty = riskStr !== '' || stopStr !== '' || entryStr !== '' || partialContracts !== 0;
 
   const clearAll = () => {
     setContract(DEFAULT_CONTRACT);
     setRisk('');
     setStop('');
-    setTotal('');
     setPartial(0);
     setPartialLevel('0.8');
     setTargetRR('1.0');
@@ -149,9 +139,6 @@ export default function Home() {
         <ExitCard
           contractSymbol={contractSymbol}
           totalContracts={effectiveTotal}
-          totalStr={totalStr}
-          usingSizedTotal={usingSizedTotal}
-          sizingContracts={sizing.contracts}
           partialContracts={k}
           partialLevelStr={partialLevelStr}
           targetRRStr={targetRRStr}
@@ -161,7 +148,6 @@ export default function Home() {
           dollarPerPoint={sizing.dollarPerPoint}
           riskPerContract={sizing.riskPerContract}
           result={exit}
-          onTotal={setTotal}
           onPartial={setPartial}
           onPartialLevel={setPartialLevel}
           onTargetRR={setTargetRR}
