@@ -107,16 +107,6 @@ export default function Home() {
             <HelpCircle className="size-4" />
             <span className="hidden sm:inline">How it works</span>
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9"
-            onClick={clearAll}
-            disabled={!isDirty}
-          >
-            Clear
-          </Button>
           <ThemeToggle />
         </div>
       </header>
@@ -134,6 +124,8 @@ export default function Home() {
           onRisk={setRisk}
           onStop={setStop}
           result={sizing}
+          isDirty={isDirty}
+          onClear={clearAll}
         />
 
         <ExitCard

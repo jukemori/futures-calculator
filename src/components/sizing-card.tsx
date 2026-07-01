@@ -1,9 +1,11 @@
 'use client';
 
+import { RotateCcw } from 'lucide-react';
 import type { SizingResult } from '@/lib/calc';
 import type { ContractSymbol } from '@/lib/contracts';
 import { formatUsd } from '@/lib/format';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ContractSelect } from './contract-select';
 import { NumberField } from './number-field';
 
@@ -15,6 +17,10 @@ type Props = {
   onRisk: (s: string) => void;
   onStop: (s: string) => void;
   result: SizingResult;
+  /** Whether any input has been touched — gates the reset affordance. */
+  isDirty: boolean;
+  /** Reset every input across both stages back to defaults. */
+  onClear: () => void;
 };
 
 export function SizingCard({
@@ -25,6 +31,8 @@ export function SizingCard({
   onRisk,
   onStop,
   result,
+  isDirty,
+  onClear,
 }: Props) {
   const { valid, dollarPerPoint, riskPerContract, contracts, exactContracts } = result;
   const leftover = exactContracts - contracts; // fractional contract you can't take
@@ -38,6 +46,22 @@ export function SizingCard({
           </span>
           Size
         </CardTitle>
+        {/* Reset lives at the point of input, not in the app-chrome corner — and
+            only appears once there's something to clear (§6.3). */}
+        {isDirty ? (
+          <CardAction>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onClear}
+              className="-my-1 cursor-pointer gap-1.5 text-xs text-muted-foreground"
+            >
+              <RotateCcw className="size-3.5" />
+              Reset
+            </Button>
+          </CardAction>
+        ) : null}
       </CardHeader>
       <CardContent className="grid gap-3">
         <div className="grid grid-cols-2 gap-3">
