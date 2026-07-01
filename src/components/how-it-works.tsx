@@ -11,7 +11,7 @@ const STEPS = [
   {
     n: '1',
     title: 'Size your position',
-    body: 'Enter your contract, the dollars you’re risking, and your stop distance. You get whole contracts — micros can’t be split.',
+    body: 'Enter your contract, the dollars you’re risking, and how far your stop-loss sits from entry. You get whole contracts — micros can’t be split.',
   },
   {
     n: '2',

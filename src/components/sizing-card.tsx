@@ -50,7 +50,7 @@ export function SizingCard({
             placeholder="1200"
           />
           <NumberField
-            label="Stop Distance"
+            label="SL from Entry"
             value={stopStr}
             onChange={onStop}
             suffix="pts"
@@ -60,8 +60,8 @@ export function SizingCard({
 
         {/* points-vs-ticks footgun, surfaced near the stop input, not at the bottom (§2) */}
         <p className="text-xs text-muted-foreground/80">
-          Stop is in <span className="text-muted-foreground">points</span> (a full 1.00 move), not
-          ticks.
+          Distance from entry to your stop-loss, in{' '}
+          <span className="text-muted-foreground">points</span> (a full 1.00 move), not ticks.
         </p>
 
         <div className="rounded-lg bg-muted px-4 py-3">
@@ -87,7 +87,7 @@ export function SizingCard({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Enter a contract, risk $ and stop distance to size your position.
+              Enter a contract, risk $ and your SL distance from entry to size your position.
             </p>
           )}
         </div>
