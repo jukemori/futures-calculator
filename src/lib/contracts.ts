@@ -26,10 +26,6 @@ export const CONTRACTS = [
   },
   { symbol: 'MNQ', dollarPerPoint: 2, tickSize: 0.25, note: '$2 × Nasdaq-100' },
   { symbol: 'NQ', dollarPerPoint: 20, tickSize: 0.25, note: '$20 × Nasdaq-100' },
-  { symbol: 'SI', dollarPerPoint: 5000, tickSize: 0.005, note: '5,000 oz silver' },
-  { symbol: 'SIL', dollarPerPoint: 1000, tickSize: 0.005, note: '1,000 oz silver' },
-  { symbol: 'MC', dollarPerPoint: 10 },
-  { symbol: 'MCL', dollarPerPoint: 100 },
 ] as const satisfies readonly Contract[];
 
 export type ContractSymbol = (typeof CONTRACTS)[number]['symbol'];

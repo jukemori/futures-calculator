@@ -70,10 +70,6 @@ contracts       = floor(riskDollars / riskPerContract)
 | GC       | 100     | 0.10     | 10     | 100 oz; $10 per 0.10 tick → $100/pt |
 | MNQ      | 2       | 0.25     | 0.50   | $2 × Nasdaq-100                     |
 | NQ       | 20      | 0.25     | 5      | $20 × Nasdaq-100                    |
-| SI       | 5000    | 0.005    | 25     | 5,000 oz                            |
-| SIL      | 1000    | 0.005    | 5      | 1,000 oz                            |
-| MC       | 10      | —        | —      |                                     |
-| MCL      | 100     | —        | —      |                                     |
 
 > **Why `tickSize` / `$tick` now, even if unused:** the "points vs ticks" footnote on your sheet is
 > a real footgun. Adding the columns up front means a future **tick-mode toggle** is a UI change,
