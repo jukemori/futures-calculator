@@ -32,3 +32,32 @@ export function formatPrice(n: number): string {
   if (!Number.isFinite(n)) return '—';
   return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
+
+const yen = new Intl.NumberFormat('ja-JP', {
+  style: 'currency',
+  currency: 'JPY',
+  maximumFractionDigits: 0,
+});
+
+/** Whole-yen currency with an explicit + on gains: +¥19,800 / −¥29,925. */
+export function formatYen(n: number): string {
+  if (!Number.isFinite(n)) return '—';
+  const sign = n > 0 ? '+' : n < 0 ? '−' : '';
+  return `${sign}${yen.format(Math.abs(n)).replace('￥', '¥')}`;
+}
+
+/** Lot size at the instrument's step precision: 0.35 / 3.2. */
+export function formatLots(lots: number, lotStep: number): string {
+  if (!Number.isFinite(lots)) return '—';
+  const decimals = Math.max(0, Math.round(-Math.log10(lotStep)));
+  return lots.toFixed(decimals);
+}
+
+/** Price level at a fixed quote precision: 2,654.00 / 21,480.5. */
+export function formatQuote(n: number, decimals: number): string {
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}

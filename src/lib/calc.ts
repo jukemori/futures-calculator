@@ -3,9 +3,13 @@
 //
 //     b = (T·C − k·a) / (C − k)        // runner TP in R
 //
+// Forex mode generalizes it with the spread σ (DESIGN-FOREX.md §4.2); σ = 0 is
+// exactly the futures formula, so one engine serves both modes.
+//
 // Everything else is honest outcome accounting and price conversion around it.
 
 import { getContract } from './contracts';
+import { getInstrument } from './instruments';
 
 // ── Sizing (Stage 1, port of the spreadsheet) ───────────────────────────────
 
@@ -46,6 +50,68 @@ export function computeSizing(input: SizingInput): SizingResult {
   };
 }
 
+// ── Forex sizing (DESIGN-FOREX.md §3) ────────────────────────────────────────
+
+export type FxSizingInput = {
+  instrumentSymbol: string;
+  riskYen: number;
+  slPips: number;
+  spreadPips: number; // blank → 0; the spread is paid on the way in
+  usdJpy: number;
+};
+
+export type FxSizingResult = {
+  valid: boolean;
+  yenPerPipPerLot: number;
+  riskPerLotYen: number; // (SL + spread) × ¥/pip/lot — the real loss per lot
+  lots: number; // floored to the lot step
+  exactLots: number;
+  steps: number; // lots / lotStep — the integer C the exit engine works in
+  yenPerPipPerStep: number;
+  lotStep: number;
+  spreadR: number; // σ = spread / SL
+};
+
+export function computeFxSizing(input: FxSizingInput): FxSizingResult {
+  const inst = getInstrument(input.instrumentSymbol);
+  const { riskYen, slPips, usdJpy } = input;
+  const spreadPips = Number.isFinite(input.spreadPips) ? input.spreadPips : 0;
+  const lotStep = inst?.lotStep ?? 1;
+  const yenPerPipPerLot = inst && pos(usdJpy) ? inst.usdPerPoint * inst.pipSize * usdJpy : 0;
+  const invalid: FxSizingResult = {
+    valid: false,
+    yenPerPipPerLot,
+    riskPerLotYen: 0,
+    lots: 0,
+    exactLots: 0,
+    steps: 0,
+    yenPerPipPerStep: yenPerPipPerLot * lotStep,
+    lotStep,
+    spreadR: 0,
+  };
+
+  if (!inst || !pos(yenPerPipPerLot) || !pos(slPips) || !pos(riskYen) || spreadPips < 0) {
+    return invalid;
+  }
+
+  const riskPerLotYen = (slPips + spreadPips) * yenPerPipPerLot;
+  const exactLots = riskYen / riskPerLotYen;
+  // Round away float noise before flooring (0.35 / 0.01 = 34.999…).
+  const steps = Math.floor(Math.round((exactLots / lotStep) * 1e6) / 1e6);
+
+  return {
+    valid: true,
+    yenPerPipPerLot,
+    riskPerLotYen,
+    lots: steps * lotStep,
+    exactLots,
+    steps,
+    yenPerPipPerStep: yenPerPipPerLot * lotStep,
+    lotStep,
+    spreadR: spreadPips / slPips,
+  };
+}
+
 // ── Exit plan (Stage 2, the new part) ────────────────────────────────────────
 
 export type ExitInput = {
@@ -56,6 +122,7 @@ export type ExitInput = {
   stopToBreakeven: boolean; // moves the runner's stop to BE once the partial fills
   entryPrice?: number;
   direction?: 'long' | 'short';
+  spreadR?: number; // σ = spread / stop, paid once per leg (forex). Default 0 (futures).
 };
 
 export type ExitResult = {
@@ -64,17 +131,19 @@ export type ExitResult = {
   runnerLevelR: number; // b — NaN when there is no runner
   partialFraction: number; // p = k / C (derived, never chosen)
   blendedWinnerR: number; // == T when the runner hits
-  blendedWinnerUsd: number; // total $ if the runner hits
+  blendedWinnerUsd: number; // total $ if the runner hits (net of spread)
   partialThenStallUsd: number; // partial fills then price reverses to stop (depends on BE)
-  fullLossUsd: number; // −C·R$ (original stop)
+  fullLossUsd: number; // −C·R$·(1 + σ) (original stop)
+  spreadCostUsd: number; // C·σ·R$ — what the spread costs on the whole position
   runnerTravelPoints: number; // b × stopPoints — how far price must travel to the runner TP
   prices?: { stop: number; partial: number; runner: number };
   warnings: string[];
 };
 
 export type ExitParams = {
-  dollarPerPoint: number;
-  stopPoints: number;
+  dollarPerPoint: number; // money per stop unit per size unit (¥/pip/lot-step in forex)
+  stopPoints: number; // stop distance in stop units (pts or pips)
+  priceUnit?: number; // price per stop unit — pipSize in forex, 1 for futures
 };
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -84,6 +153,8 @@ export function computeExit(input: ExitInput, params: ExitParams): ExitResult {
   const k = Math.min(C, Math.max(0, Math.floor(input.partialContracts))); // clamp to 0…C (§7)
   const { partialLevelR: a, targetRR: T, stopToBreakeven } = input;
   const { dollarPerPoint, stopPoints } = params;
+  const priceUnit = params.priceUnit ?? 1;
+  const sigma = input.spreadR !== undefined && input.spreadR > 0 ? input.spreadR : 0;
 
   const riskPerContract = pos(stopPoints) && pos(dollarPerPoint) ? stopPoints * dollarPerPoint : 0; // R$
   const warnings: string[] = [];
@@ -98,6 +169,7 @@ export function computeExit(input: ExitInput, params: ExitParams): ExitResult {
       blendedWinnerUsd: 0,
       partialThenStallUsd: 0,
       fullLossUsd: 0,
+      spreadCostUsd: 0,
       runnerTravelPoints: 0,
       warnings: ['increase risk or tighten stop — not enough for one contract'],
     };
@@ -107,21 +179,27 @@ export function computeExit(input: ExitInput, params: ExitParams): ExitResult {
   const partialFraction = k / C;
   const hasRunner = runner > 0;
 
-  // b = (T·C − k·a) / (C − k). NaN when there's no runner (avoid divide-by-zero, §7).
-  const runnerLevelR = hasRunner ? (T * C - k * a) / runner : NaN;
+  // Every leg pays the spread once (DESIGN-FOREX.md §4.1): loss −(1+σ), partial
+  // a−σ, runner b−σ. Solve the net winner = T × net risk for b:
+  //   b = (T·C·(1 + σ) + C·σ − k·a) / (C − k)
+  // σ = 0 → b = (T·C − k·a) / (C − k). NaN when there's no runner (§7).
+  const runnerLevelR = hasRunner ? (T * C * (1 + sigma) + C * sigma - k * a) / runner : NaN;
 
-  // Blended winner: average R per contract if the runner hits == T (by construction).
-  const blendedWinnerR = hasRunner ? (k * a + runner * runnerLevelR) / C : a;
-  const blendedWinnerUsd = (k * a + (hasRunner ? runner * runnerLevelR : 0)) * riskPerContract;
+  // Net blended winner in R of net risk == T when the runner hits (by construction).
+  const winnerLegsR = k * (a - sigma) + (hasRunner ? runner * (runnerLevelR - sigma) : 0);
+  const blendedWinnerR = winnerLegsR / (C * (1 + sigma));
+  const blendedWinnerUsd = winnerLegsR * riskPerContract;
 
   // Partial fills at a, then price reverses to the stop.
-  //   BE on  → runner exits at break-even: +k·a·R$ (can't lose once partial is in)
-  //   BE off → runner takes the full original stop: k·a·R$ − runner·R$
+  //   BE on  → runner exits at break-even (still pays its spread): k·(a−σ)·R$ − runner·σ·R$
+  //   BE off → runner takes the full original stop: k·(a−σ)·R$ − runner·(1+σ)·R$
+  const partialLegUsd = k * (a - sigma) * riskPerContract;
   const partialThenStallUsd = stopToBreakeven
-    ? k * a * riskPerContract
-    : k * a * riskPerContract - runner * riskPerContract;
+    ? partialLegUsd - runner * sigma * riskPerContract
+    : partialLegUsd - runner * (1 + sigma) * riskPerContract;
 
-  const fullLossUsd = -C * riskPerContract;
+  const fullLossUsd = -C * (1 + sigma) * riskPerContract;
+  const spreadCostUsd = C * sigma * riskPerContract;
 
   const runnerTravelPoints = hasRunner && pos(stopPoints) ? runnerLevelR * stopPoints : 0;
 
@@ -134,14 +212,18 @@ export function computeExit(input: ExitInput, params: ExitParams): ExitResult {
     pos(stopPoints)
   ) {
     const dir = input.direction === 'long' ? 1 : -1;
+    const stopDist = stopPoints * priceUnit;
     prices = {
-      stop: input.entryPrice - dir * stopPoints,
-      partial: input.entryPrice + dir * a * stopPoints,
-      runner: hasRunner ? input.entryPrice + dir * runnerLevelR * stopPoints : NaN,
+      stop: input.entryPrice - dir * stopDist,
+      partial: input.entryPrice + dir * a * stopDist,
+      runner: hasRunner ? input.entryPrice + dir * runnerLevelR * stopDist : NaN,
     };
   }
 
   // ── Warnings ────────────────────────────────────────────────────────────
+  if (k > 0 && a <= sigma) {
+    warnings.push(`partial at ${r1(a)}R doesn't cover the spread — it closes at a net loss`);
+  }
   if (!hasRunner) {
     warnings.push(`no runner — full position exits at ${r1(a)}R`);
   } else {
@@ -167,6 +249,7 @@ export function computeExit(input: ExitInput, params: ExitParams): ExitResult {
     blendedWinnerUsd,
     partialThenStallUsd,
     fullLossUsd,
+    spreadCostUsd,
     runnerTravelPoints,
     prices,
     warnings,
