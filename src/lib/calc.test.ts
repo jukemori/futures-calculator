@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { computeExit, computeSizing, type ExitInput } from './calc';
+import { computeExit, computeFxSizing, computeSizing, type ExitInput } from './calc';
 
 const exit = (over: Partial<ExitInput>, dollarPerPoint = 10, stopPoints = 1) =>
   computeExit(
@@ -165,5 +165,131 @@ describe('computeSizing — port of the sheet', () => {
   test('unknown contract symbol → invalid', () => {
     const res = computeSizing({ contractSymbol: 'ZZZ', riskDollars: 1200, stopPoints: 18.5 });
     expect(res.valid).toBe(false);
+  });
+});
+
+describe('computeFxSizing — OANDA Japan, yen account (DESIGN-FOREX.md §3)', () => {
+  test('XAUUSD §3.2 fixture: spread is inside the risk', () => {
+    // SL 500 pips ($5.00) + spread 70 → 570 pips × $1/pip/lot × ¥150 = ¥85,500/lot
+    const res = computeFxSizing({
+      instrumentSymbol: 'XAUUSD',
+      riskYen: 30000,
+      slPips: 500,
+      spreadPips: 70,
+      usdJpy: 150,
+    });
+    expect(res.valid).toBe(true);
+    expect(res.yenPerPipPerLot).toBeCloseTo(150, 5);
+    expect(res.riskPerLotYen).toBeCloseTo(85500, 5);
+    expect(res.exactLots).toBeCloseTo(0.3509, 3);
+    expect(res.lots).toBeCloseTo(0.35, 10);
+    expect(res.steps).toBe(35);
+    expect(res.spreadR).toBeCloseTo(0.14, 10);
+  });
+
+  test('NAS100 floors to the 0.1 lot step', () => {
+    // (100 + 2) pips × $1 × ¥150 = ¥15,300/lot; ¥50,000 → 3.27 → 3.2 lots
+    const res = computeFxSizing({
+      instrumentSymbol: 'NAS100',
+      riskYen: 50000,
+      slPips: 100,
+      spreadPips: 2,
+      usdJpy: 150,
+    });
+    expect(res.lots).toBeCloseTo(3.2, 10);
+    expect(res.steps).toBe(32);
+  });
+
+  test('exact multiples are not lost to float noise', () => {
+    // ¥85,500 × 0.35 = ¥29,925 → exactly 0.35 lots
+    const res = computeFxSizing({
+      instrumentSymbol: 'XAUUSD',
+      riskYen: 29925,
+      slPips: 500,
+      spreadPips: 70,
+      usdJpy: 150,
+    });
+    expect(res.steps).toBe(35);
+  });
+
+  test('blank spread counts as 0', () => {
+    const res = computeFxSizing({
+      instrumentSymbol: 'XAUUSD',
+      riskYen: 30000,
+      slPips: 500,
+      spreadPips: NaN,
+      usdJpy: 150,
+    });
+    expect(res.riskPerLotYen).toBeCloseTo(75000, 5);
+    expect(res.spreadR).toBe(0);
+  });
+
+  test.each([
+    { riskYen: 0, slPips: 500, spreadPips: 70, usdJpy: 150 },
+    { riskYen: 30000, slPips: 0, spreadPips: 70, usdJpy: 150 },
+    { riskYen: 30000, slPips: 500, spreadPips: -1, usdJpy: 150 },
+    { riskYen: 30000, slPips: 500, spreadPips: 70, usdJpy: NaN },
+  ])('blank/≤0 input → invalid ($riskYen/$slPips/$spreadPips/$usdJpy)', (over) => {
+    const res = computeFxSizing({ instrumentSymbol: 'XAUUSD', ...over });
+    expect(res.valid).toBe(false);
+    expect(res.steps).toBe(0);
+  });
+});
+
+describe('computeExit — spread-aware runner TP (DESIGN-FOREX.md §4.2)', () => {
+  test('σ = 0 reproduces the futures formula', () => {
+    const res = exit({ totalContracts: 6, partialContracts: 3, spreadR: 0 });
+    expect(res.runnerLevelR).toBeCloseTo(1.2, 5);
+    expect(res.spreadCostUsd).toBe(0);
+  });
+
+  test('§4.2 fixture: p = 0.5, a = 0.8, σ = 0.14 → b = 1.76R', () => {
+    const res = exit({ totalContracts: 4, partialContracts: 2, spreadR: 0.14 });
+    expect(res.runnerLevelR).toBeCloseTo(1.76, 5);
+  });
+
+  test('net winner == T × net risk (true 1:1 after spread)', () => {
+    const res = exit({ totalContracts: 35, partialContracts: 17, spreadR: 0.14 }, 7.5, 500);
+    const netRisk = -res.fullLossUsd;
+    expect(res.blendedWinnerR).toBeCloseTo(1, 10);
+    expect(res.blendedWinnerUsd).toBeCloseTo(netRisk, 6);
+  });
+
+  test('outcomes are net of spread', () => {
+    // C=4, k=2, R$=100/step, σ=0.1
+    const params = { dollarPerPoint: 1, stopPoints: 100 };
+    const base = { totalContracts: 4, partialContracts: 2, partialLevelR: 0.8, targetRR: 1 };
+    const off = computeExit({ ...base, stopToBreakeven: false, spreadR: 0.1 }, params);
+    const be = computeExit({ ...base, stopToBreakeven: true, spreadR: 0.1 }, params);
+    expect(off.fullLossUsd).toBeCloseTo(-440, 6); // 4 × 1.1 × 100
+    expect(off.spreadCostUsd).toBeCloseTo(40, 6);
+    expect(off.partialThenStallUsd).toBeCloseTo(2 * 0.7 * 100 - 2 * 1.1 * 100, 6); // −80
+    expect(be.partialThenStallUsd).toBeCloseTo(2 * 0.7 * 100 - 2 * 0.1 * 100, 6); // +120
+  });
+
+  test('partial that does not cover the spread is flagged', () => {
+    const res = exit({ totalContracts: 4, partialContracts: 2, partialLevelR: 0.1, spreadR: 0.2 });
+    expect(res.warnings.join(' ')).toMatch(/doesn't cover the spread/i);
+  });
+
+  test('price levels use the pip size', () => {
+    // XAUUSD long @ 2650, SL 500 pips × 0.01 = $5.00
+    const res = computeExit(
+      {
+        totalContracts: 4,
+        partialContracts: 2,
+        partialLevelR: 0.8,
+        targetRR: 1,
+        stopToBreakeven: false,
+        entryPrice: 2650,
+        direction: 'long',
+        spreadR: 0.14,
+      },
+      { dollarPerPoint: 1.5, stopPoints: 500, priceUnit: 0.01 },
+    );
+    expect(res.prices?.stop).toBeCloseTo(2645, 6);
+    expect(res.prices?.partial).toBeCloseTo(2654, 6);
+    expect(res.prices?.runner).toBeCloseTo(2650 + 1.76 * 5, 6);
+    expect(res.runnerTravelPoints).toBeCloseTo(880, 6); // pips
   });
 });
