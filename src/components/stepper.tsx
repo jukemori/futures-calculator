@@ -16,11 +16,25 @@ type Props = {
   disabled?: boolean;
   /** Optional info hint rendered next to the label (e.g. an <InfoHint />). */
   hint?: React.ReactNode;
+  /** Display units per step — 1 for contracts, the lot step (0.01) for lots. */
+  scale?: number;
+  decimals?: number;
 };
 
-/** Integer stepper for `k` — enforces whole contracts; the resulting % is shown
- *  as derived output, never chosen directly (DESIGN.md §3.3 / §5.2). */
-export function Stepper({ label, value, min, max, onChange, derived, disabled, hint }: Props) {
+/** Integer stepper for `k` — enforces whole contracts (or whole lot steps); the
+ *  resulting % is shown as derived output, never chosen directly (DESIGN.md §3.3 / §5.2). */
+export function Stepper({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+  derived,
+  disabled,
+  hint,
+  scale = 1,
+  decimals = 0,
+}: Props) {
   const id = useId();
   const clamp = (n: number) => Math.min(max, Math.max(min, n));
 
@@ -45,13 +59,13 @@ export function Stepper({ label, value, min, max, onChange, derived, disabled, h
         <Input
           id={id}
           inputMode="numeric"
-          value={disabled ? '—' : value}
+          value={disabled ? '—' : (value * scale).toFixed(decimals)}
           disabled={disabled}
           onChange={(e) => {
-            const n = parseInt(e.target.value, 10);
+            const n = Math.round(Number.parseFloat(e.target.value) / scale);
             onChange(Number.isNaN(n) ? min : clamp(n));
           }}
-          className="h-10 w-14 text-center text-lg"
+          className={`h-10 text-center text-lg ${decimals > 0 ? 'w-20' : 'w-14'}`}
         />
         <Button
           type="button"

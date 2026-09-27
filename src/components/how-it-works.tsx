@@ -2,21 +2,30 @@
 
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { Mode } from './mode-toggle';
 
 type Props = {
+  mode: Mode;
   onClose: () => void;
+};
+
+const SIZE_STEP: Record<Mode, string> = {
+  futures:
+    'Enter your contract, the dollars you’re risking, and how far your stop-loss sits from entry. You get whole contracts — micros can’t be split.',
+  forex:
+    'Pick NAS100 or XAUUSD, the yen you’re risking, your stop-loss and the spread in pips. The spread is added to your risk, and you get lots rounded down to OANDA’s lot step.',
 };
 
 const STEPS = [
   {
     n: '1',
     title: 'Size your position',
-    body: 'Enter your contract, the dollars you’re risking, and how far your stop-loss sits from entry. You get whole contracts — micros can’t be split.',
+    body: '',
   },
   {
     n: '2',
     title: 'Plan the exit',
-    body: 'Take some contracts off early at a partial to bank profit, and let the rest — the “runner” — ride for a bigger move.',
+    body: 'Take some of the position off early at a partial to bank profit, and let the rest — the “runner” — ride for a bigger move.',
   },
   {
     n: '3',
@@ -30,8 +39,8 @@ const GLOSSARY = [
     'R',
     'Your risk unit — one stop’s distance. +1R means you made what you risked; −1R means you lost it.',
   ],
-  ['Partial', 'Contracts you close early to lock in profit before the move is done.'],
-  ['Runner', 'The contracts you leave on after the partial, aiming for a larger target.'],
+  ['Partial', 'The part of the position you close early to lock in profit.'],
+  ['Runner', 'What you leave on after the partial, aiming for a larger target.'],
   [
     'Runner TP',
     'The take-profit price/level for those runner contracts — the number this app solves for.',
@@ -40,7 +49,7 @@ const GLOSSARY = [
 
 /** Plain-language explainer for first-timers. Dismissible (persisted) and
  *  re-openable from the header, so it never clutters the dense pro layout. */
-export function HowItWorks({ onClose }: Props) {
+export function HowItWorks({ mode, onClose }: Props) {
   return (
     <section
       aria-label="How this app works"
@@ -67,7 +76,9 @@ export function HowItWorks({ onClose }: Props) {
             </span>
             <div>
               <div className="text-sm font-medium">{s.title}</div>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{s.body}</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                {s.n === '1' ? SIZE_STEP[mode] : s.body}
+              </p>
             </div>
           </li>
         ))}

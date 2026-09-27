@@ -16,10 +16,12 @@ type Props = {
   usd: number;
   rDenominator: number;
   tone?: Tone;
+  /** Money formatter — $ for futures, ¥ for forex. */
+  format?: (n: number) => string;
 };
 
 /** One labeled gain/loss row: label … +0.4R  +$444, with semantic color. */
-export function OutcomeRow({ label, usd, rDenominator, tone }: Props) {
+export function OutcomeRow({ label, usd, rDenominator, tone, format = formatUsd }: Props) {
   const r = rDenominator > 0 ? usd / rDenominator : NaN;
   const resolved: Tone = tone ?? (usd > 0 ? 'gain' : usd < 0 ? 'loss' : 'neutral');
   return (
@@ -27,7 +29,7 @@ export function OutcomeRow({ label, usd, rDenominator, tone }: Props) {
       <span className="text-sm text-muted-foreground">{label}</span>
       <span className={`flex items-baseline gap-3 font-mono ${TONE[resolved]}`}>
         <span className="text-sm tabular-nums">{formatR(r, { sign: true })}</span>
-        <span className="w-24 text-right text-base font-medium tabular-nums">{formatUsd(usd)}</span>
+        <span className="w-24 text-right text-base font-medium tabular-nums">{format(usd)}</span>
       </span>
     </div>
   );

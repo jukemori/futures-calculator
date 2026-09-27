@@ -2,7 +2,6 @@
 
 import { useId } from 'react';
 import type { ExitResult } from '@/lib/calc';
-import type { ContractSymbol } from '@/lib/contracts';
 import { formatPct, formatPrice, formatR, formatUsd } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,8 +21,42 @@ export const PRESETS = [
   { label: 'Runner only', a: 0.8, fraction: 0, t: 1 },
 ] as const satisfies readonly Preset[];
 
+/** What the card counts and pays in — whole contracts/$/pts for futures,
+ *  lot steps/¥/pips for forex (DESIGN-FOREX.md §5.3). */
+export type ExitUnits = {
+  money: (n: number) => string;
+  /** C and k are integer size steps; this renders a step count for display. */
+  size: (steps: number) => string;
+  sizeNoun: (steps: number) => string; // 'contract' / 'contracts' / 'lots'
+  sizeTitle: string; // 'Contracts' / 'Lots'
+  stepScale: number; // size units per step (1, or the lot step)
+  stepDecimals: number;
+  dist: string; // 'pts' / 'pips'
+  price: (n: number) => string;
+  entryPlaceholder: string;
+  hintSizeSplit: string; // why the % is derived, not chosen
+};
+
+export const FUTURES_UNITS: ExitUnits = {
+  money: formatUsd,
+  size: (n) => String(n),
+  sizeNoun: (n) => (n === 1 ? 'contract' : 'contracts'),
+  sizeTitle: 'Contracts',
+  stepScale: 1,
+  stepDecimals: 0,
+  dist: 'pts',
+  price: formatPrice,
+  entryPlaceholder: '4185.0',
+  hintSizeSplit: 'you can’t split a whole micro.',
+};
+
 type Props = {
-  contractSymbol: ContractSymbol;
+  /** Stage-1 context line, e.g. "MGC · $10/pt · R $185". Empty → not sized yet. */
+  context: string;
+  symbol: string;
+  units: ExitUnits;
+  /** R in money per size step, net of spread — denominator for per-row R. */
+  netRiskPerStep: number;
   totalContracts: number; // effective C — driven by sizing (①)
   partialContracts: number; // k
   partialLevelStr: string; // a
@@ -31,8 +64,6 @@ type Props = {
   stopToBreakeven: boolean;
   entryStr: string;
   direction: 'long' | 'short';
-  dollarPerPoint: number;
-  riskPerContract: number; // R$
   result: ExitResult;
   onPartial: (n: number) => void;
   onPartialLevel: (s: string) => void;
@@ -45,7 +76,10 @@ type Props = {
 
 export function ExitCard(props: Props) {
   const {
-    contractSymbol,
+    context,
+    symbol,
+    units,
+    netRiskPerStep,
     totalContracts: C,
     partialContracts: k,
     partialLevelStr,
@@ -53,8 +87,6 @@ export function ExitCard(props: Props) {
     stopToBreakeven,
     entryStr,
     direction,
-    dollarPerPoint,
-    riskPerContract,
     result,
     onPartial,
     onPreset,
@@ -62,7 +94,7 @@ export function ExitCard(props: Props) {
 
   const beId = useId();
   const disabled = !result.valid; // C ≤ 0
-  const rDenom = C * riskPerContract; // C·R$ — denominator for per-row R display
+  const rDenom = C * netRiskPerStep; // C·R$ — denominator for per-row R display
   const { prices } = result;
 
   return (
@@ -76,9 +108,7 @@ export function ExitCard(props: Props) {
         </CardTitle>
         {/* explicit link to Stage 1 — contract/risk/stop drive every number below */}
         <span className="font-mono text-xs text-muted-foreground/80">
-          {riskPerContract > 0
-            ? `${contractSymbol} · $${dollarPerPoint}/pt · R ${formatUsd(riskPerContract).replace('+', '')}`
-            : `${contractSymbol} · size a position →`}
+          {context || `${symbol} · size a position →`}
         </span>
       </CardHeader>
 
@@ -104,18 +134,16 @@ export function ExitCard(props: Props) {
             by your sizing in ① and updates live as risk/stop change (§5.2) */}
         <div className="rounded-lg bg-muted px-4 py-3">
           <div className="flex items-center gap-2 text-xs font-medium tracking-widest text-muted-foreground uppercase">
-            Total contracts
-            <InfoHint label="Total contracts">
-              How many contracts the whole plan is built on. Set by your sizing in step ① — change
-              Risk $ or Stop there and this updates.
+            Total {units.sizeTitle.toLowerCase()}
+            <InfoHint label={`Total ${units.sizeTitle.toLowerCase()}`}>
+              How many {units.sizeTitle.toLowerCase()} the whole plan is built on. Set by your
+              sizing in step ① — change risk or SL there and this updates.
             </InfoHint>
           </div>
           {C > 0 ? (
             <div className="flex items-baseline gap-3">
-              <span className="font-mono text-5xl font-bold tabular-nums">{C}</span>
-              <span className="text-sm text-muted-foreground">
-                {C === 1 ? 'contract' : 'contracts'} · from ①
-              </span>
+              <span className="font-mono text-5xl font-bold tabular-nums">{units.size(C)}</span>
+              <span className="text-sm text-muted-foreground">{units.sizeNoun(C)} · from ①</span>
             </div>
           ) : (
             <p className="mt-1 text-sm text-muted-foreground/80">size a position in ① →</p>
@@ -152,17 +180,19 @@ export function ExitCard(props: Props) {
         </div>
 
         <Stepper
-          label="Contracts off"
+          label={`${units.sizeTitle} off`}
           value={k}
           min={0}
           max={Math.max(0, C)}
           onChange={onPartial}
           disabled={disabled}
+          scale={units.stepScale}
+          decimals={units.stepDecimals}
           derived={formatPct(result.partialFraction)}
           hint={
-            <InfoHint label="Contracts off">
-              How many contracts to close at the partial. The rest become your runner. The % is
-              shown, not chosen — you can’t split a whole micro.
+            <InfoHint label={`${units.sizeTitle} off`}>
+              How many {units.sizeTitle.toLowerCase()} to close at the partial. The rest become your
+              runner. The % is shown, not chosen — {units.hintSizeSplit}
             </InfoHint>
           }
         />
@@ -189,13 +219,13 @@ export function ExitCard(props: Props) {
           <div className="flex items-center gap-2 text-xs font-medium tracking-widest text-muted-foreground uppercase">
             Runner TP
             <InfoHint label="Runner TP">
-              Where to set the take-profit for your runner contracts (in R) so the whole trade still
-              hits your target RR after the partial. This is the number the app exists to find.
+              Where to set the take-profit for your runner (in R) so the whole trade still hits your
+              target RR after the partial. This is the number the app exists to find.
             </InfoHint>
           </div>
           {disabled ? (
             <p className="mt-1 text-sm text-muted-foreground/80">
-              increase risk or tighten stop — no contracts to plan
+              increase risk or tighten stop — nothing to plan
             </p>
           ) : result.hasRunner ? (
             <div className="flex items-baseline gap-3">
@@ -204,7 +234,7 @@ export function ExitCard(props: Props) {
               </span>
               {result.runnerTravelPoints > 0 ? (
                 <span className="text-sm text-muted-foreground">
-                  {formatPrice(result.runnerTravelPoints)} pts travel
+                  {formatPrice(result.runnerTravelPoints)} {units.dist} travel
                 </span>
               ) : null}
             </div>
@@ -230,6 +260,7 @@ export function ExitCard(props: Props) {
                 label="If runner hits"
                 usd={result.blendedWinnerUsd}
                 rDenominator={rDenom}
+                format={units.money}
                 tone="gain"
               />
             ) : null}
@@ -237,14 +268,22 @@ export function ExitCard(props: Props) {
               label={stopToBreakeven ? 'Partial + stall (BE)' : 'Partial + stall'}
               usd={result.partialThenStallUsd}
               rDenominator={rDenom}
+              format={units.money}
               tone={result.partialThenStallUsd >= 0 ? 'neutral' : 'loss'}
             />
             <OutcomeRow
               label="Full stop"
               usd={result.fullLossUsd}
               rDenominator={rDenom}
+              format={units.money}
               tone="loss"
             />
+            {result.spreadCostUsd > 0 ? (
+              <p className="pt-1 pb-1 text-xs text-muted-foreground/80">
+                Spread costs {units.money(result.spreadCostUsd).replace('+', '')} on this trade —
+                already in every row above and in the runner TP.
+              </p>
+            ) : null}
           </div>
         ) : null}
 
@@ -265,7 +304,7 @@ export function ExitCard(props: Props) {
             label="Entry price (optional)"
             value={entryStr}
             onChange={props.onEntry}
-            placeholder="4185.0"
+            placeholder={units.entryPlaceholder}
           />
           <ToggleGroup
             type="single"
@@ -285,10 +324,10 @@ export function ExitCard(props: Props) {
 
         {prices ? (
           <div className="flex flex-wrap gap-x-5 gap-y-1 font-mono text-sm tabular-nums">
-            <span className="text-loss">Stop {formatPrice(prices.stop)}</span>
-            <span className="text-warn">Partial {formatPrice(prices.partial)}</span>
+            <span className="text-loss">Stop {units.price(prices.stop)}</span>
+            <span className="text-warn">Partial {units.price(prices.partial)}</span>
             {result.hasRunner ? (
-              <span className="text-gain">Runner {formatPrice(prices.runner)}</span>
+              <span className="text-gain">Runner {units.price(prices.runner)}</span>
             ) : null}
           </div>
         ) : (
