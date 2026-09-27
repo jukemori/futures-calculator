@@ -238,7 +238,7 @@ toggle** on the right.
 DESKTOP (≥ lg) — everything on one screen
 ┌── Futures Risk + Runner TP ───────────────── [Clear] [◐] ──┐
 │ ┌─ ① SIZE ───────────────┐ ┌─ ② EXIT PLAN ── MGC·$10/pt·R$185 ┐ │
-│ │ Contract  Risk $       │ │ [50%@0.8R][60%@0.8R][Runner only] │ │
+│ │ Contract  Risk $       │ │ [50%@0.8R][80%@0.8R][Runner only] │ │
 │ │ Stop (pts)             │ │ Total·from① [6]   Take off [0.8]R │ │
 │ │ ── 6 contracts ──      │ │ [− 3 +] = 50%     Target [1.0]R   │ │
 │ │   $10/pt · R $185      │ │ Stop→BE [ off ]                   │ │
@@ -304,7 +304,7 @@ Optional third row, shown only when `entryPrice` is filled:
   locked gain). Two visibly different result states.
 - **Responsive, not just mobile.** Thumb-reachable steppers and large tap targets on a phone; on a
   laptop the whole tool fits one screen (§5.1) so you never scroll while sizing next to a chart.
-- **Presets.** One-tap chips for your real habits: `50% @ 0.8R`, `60% @ 0.8R`, `Runner only`. Each sets
+- **Presets.** One-tap chips for your real habits: `50% @ 0.8R`, `80% @ 0.8R`, `Runner only`. Each sets
   `a`, `k`, `T` in one tap.
 - **Onboarding without clutter.** The tool is dense on purpose, but the jargon (R, partial, runner,
   runner TP) is opaque to a first-timer. Two opt-in layers carry the mental model without taxing the
