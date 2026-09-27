@@ -12,6 +12,10 @@ export type Instrument = {
   maxLotsPerOrder: number;
   priceDecimals: number; // quote precision
   spreadPips: number; // default spread (standard course, MT5)
+  /** How a price move reads for this instrument: gold in dollars, the index in points. */
+  moveUnit: 'usd' | 'pt';
+  slPlaceholder: string; // pips
+  entryPlaceholder: string;
   note: string;
 };
 
@@ -25,6 +29,9 @@ export const INSTRUMENTS = [
     maxLotsPerOrder: 20,
     priceDecimals: 2,
     spreadPips: 70,
+    moveUnit: 'usd',
+    slPlaceholder: '500',
+    entryPlaceholder: '2650.00',
     note: '100 oz gold; 1 pip = $0.01 → $1/pip/lot',
   },
   {
@@ -36,15 +43,20 @@ export const INSTRUMENTS = [
     maxLotsPerOrder: 1000,
     priceDecimals: 1,
     spreadPips: 2.3,
+    moveUnit: 'pt',
+    slPlaceholder: '100',
+    entryPlaceholder: '21480.0',
     note: 'OANDA US100; 1 lot = 1 × index → $1/pt',
   },
 ] as const satisfies readonly Instrument[];
 
-export type InstrumentSymbol = (typeof INSTRUMENTS)[number]['symbol'];
+/** A row of the table — like Instrument, but with the literal symbol. */
+export type ListedInstrument = (typeof INSTRUMENTS)[number];
+export type InstrumentSymbol = ListedInstrument['symbol'];
 
 const BY_SYMBOL = new Map(INSTRUMENTS.map((i) => [i.symbol, i]));
 
-export function getInstrument(symbol: string): Instrument | undefined {
+export function getInstrument(symbol: string): ListedInstrument | undefined {
   return BY_SYMBOL.get(symbol as InstrumentSymbol);
 }
 
