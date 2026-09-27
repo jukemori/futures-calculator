@@ -131,17 +131,17 @@ export type ExitResult = {
   runnerLevelR: number; // b — NaN when there is no runner
   partialFraction: number; // p = k / C (derived, never chosen)
   blendedWinnerR: number; // == T when the runner hits
-  blendedWinnerUsd: number; // total $ if the runner hits (net of spread)
-  partialThenStallUsd: number; // partial fills then price reverses to stop (depends on BE)
-  fullLossUsd: number; // −C·R$·(1 + σ) (original stop)
-  spreadCostUsd: number; // C·σ·R$ — what the spread costs on the whole position
+  blendedWinnerPnl: number; // total $ if the runner hits (net of spread)
+  partialThenStallPnl: number; // partial fills then price reverses to stop (depends on BE)
+  fullLossPnl: number; // −C·R$·(1 + σ) (original stop)
+  spreadCost: number; // C·σ·R$ — what the spread costs on the whole position
   runnerTravelPoints: number; // b × stopPoints — how far price must travel to the runner TP
   prices?: { stop: number; partial: number; runner: number };
   warnings: string[];
 };
 
 export type ExitParams = {
-  dollarPerPoint: number; // money per stop unit per size unit (¥/pip/lot-step in forex)
+  valuePerPoint: number; // money per stop unit per size step ($/pt futures, ¥/pip/lot-step forex)
   stopPoints: number; // stop distance in stop units (pts or pips)
   priceUnit?: number; // price per stop unit — pipSize in forex, 1 for futures
 };
@@ -152,11 +152,11 @@ export function computeExit(input: ExitInput, params: ExitParams): ExitResult {
   const C = Math.max(0, Math.floor(input.totalContracts));
   const k = Math.min(C, Math.max(0, Math.floor(input.partialContracts))); // clamp to 0…C (§7)
   const { partialLevelR: a, targetRR: T, stopToBreakeven } = input;
-  const { dollarPerPoint, stopPoints } = params;
+  const { valuePerPoint, stopPoints } = params;
   const priceUnit = params.priceUnit ?? 1;
   const sigma = input.spreadR !== undefined && input.spreadR > 0 ? input.spreadR : 0;
 
-  const riskPerContract = pos(stopPoints) && pos(dollarPerPoint) ? stopPoints * dollarPerPoint : 0; // R$
+  const riskPerContract = pos(stopPoints) && pos(valuePerPoint) ? stopPoints * valuePerPoint : 0; // R$
   const warnings: string[] = [];
 
   if (C <= 0) {
@@ -166,10 +166,10 @@ export function computeExit(input: ExitInput, params: ExitParams): ExitResult {
       runnerLevelR: NaN,
       partialFraction: 0,
       blendedWinnerR: 0,
-      blendedWinnerUsd: 0,
-      partialThenStallUsd: 0,
-      fullLossUsd: 0,
-      spreadCostUsd: 0,
+      blendedWinnerPnl: 0,
+      partialThenStallPnl: 0,
+      fullLossPnl: 0,
+      spreadCost: 0,
       runnerTravelPoints: 0,
       warnings: ['increase risk or tighten stop — not enough for one contract'],
     };
@@ -188,18 +188,18 @@ export function computeExit(input: ExitInput, params: ExitParams): ExitResult {
   // Net blended winner in R of net risk == T when the runner hits (by construction).
   const winnerLegsR = k * (a - sigma) + (hasRunner ? runner * (runnerLevelR - sigma) : 0);
   const blendedWinnerR = winnerLegsR / (C * (1 + sigma));
-  const blendedWinnerUsd = winnerLegsR * riskPerContract;
+  const blendedWinnerPnl = winnerLegsR * riskPerContract;
 
   // Partial fills at a, then price reverses to the stop.
   //   BE on  → runner exits at break-even (still pays its spread): k·(a−σ)·R$ − runner·σ·R$
   //   BE off → runner takes the full original stop: k·(a−σ)·R$ − runner·(1+σ)·R$
   const partialLegUsd = k * (a - sigma) * riskPerContract;
-  const partialThenStallUsd = stopToBreakeven
+  const partialThenStallPnl = stopToBreakeven
     ? partialLegUsd - runner * sigma * riskPerContract
     : partialLegUsd - runner * (1 + sigma) * riskPerContract;
 
-  const fullLossUsd = -C * (1 + sigma) * riskPerContract;
-  const spreadCostUsd = C * sigma * riskPerContract;
+  const fullLossPnl = -C * (1 + sigma) * riskPerContract;
+  const spreadCost = C * sigma * riskPerContract;
 
   const runnerTravelPoints = hasRunner && pos(stopPoints) ? runnerLevelR * stopPoints : 0;
 
@@ -246,10 +246,10 @@ export function computeExit(input: ExitInput, params: ExitParams): ExitResult {
     runnerLevelR,
     partialFraction,
     blendedWinnerR,
-    blendedWinnerUsd,
-    partialThenStallUsd,
-    fullLossUsd,
-    spreadCostUsd,
+    blendedWinnerPnl,
+    partialThenStallPnl,
+    fullLossPnl,
+    spreadCost,
     runnerTravelPoints,
     prices,
     warnings,

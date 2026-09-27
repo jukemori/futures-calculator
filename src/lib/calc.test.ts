@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { computeExit, computeFxSizing, computeSizing, type ExitInput } from './calc';
 
-const exit = (over: Partial<ExitInput>, dollarPerPoint = 10, stopPoints = 1) =>
+const exit = (over: Partial<ExitInput>, valuePerPoint = 10, stopPoints = 1) =>
   computeExit(
     {
       totalContracts: 6,
@@ -11,7 +11,7 @@ const exit = (over: Partial<ExitInput>, dollarPerPoint = 10, stopPoints = 1) =>
       stopToBreakeven: false,
       ...over,
     },
-    { dollarPerPoint, stopPoints },
+    { valuePerPoint, stopPoints },
   );
 
 describe('computeExit — runner TP  b = (T − p·a)/(1 − p)', () => {
@@ -76,31 +76,31 @@ describe('computeExit — honest dollar outcomes (C=6, R$=185)', () => {
 
   test('blended winner = +1.00R → +$1,110', () => {
     expect(res.blendedWinnerR).toBeCloseTo(1, 5);
-    expect(res.blendedWinnerUsd).toBeCloseTo(1110, 2);
+    expect(res.blendedWinnerPnl).toBeCloseTo(1110, 2);
   });
 
   test('partial + stall (BE on) = +$444 (locked partial gain)', () => {
-    expect(res.partialThenStallUsd).toBeCloseTo(444, 2);
+    expect(res.partialThenStallPnl).toBeCloseTo(444, 2);
   });
 
   test('full stop = −$1,110', () => {
-    expect(res.fullLossUsd).toBeCloseTo(-1110, 2);
+    expect(res.fullLossPnl).toBeCloseTo(-1110, 2);
   });
 });
 
 describe('computeExit — partial-then-stall flips with break-even', () => {
-  const params = { dollarPerPoint: 185, stopPoints: 1 };
+  const params = { valuePerPoint: 185, stopPoints: 1 };
   const base = { totalContracts: 6, partialContracts: 3, partialLevelR: 0.8, targetRR: 1 };
 
   test('BE off → stall is a net loss', () => {
     const res = computeExit({ ...base, stopToBreakeven: false }, params);
     // 3·0.8·185 − 3·185 = 444 − 555 = −111
-    expect(res.partialThenStallUsd).toBeCloseTo(-111, 2);
+    expect(res.partialThenStallPnl).toBeCloseTo(-111, 2);
   });
 
   test('BE on → stall is a locked gain', () => {
     const res = computeExit({ ...base, stopToBreakeven: true }, params);
-    expect(res.partialThenStallUsd).toBeCloseTo(444, 2);
+    expect(res.partialThenStallPnl).toBeCloseTo(444, 2);
   });
 });
 
@@ -240,7 +240,7 @@ describe('computeExit — spread-aware runner TP (DESIGN-FOREX.md §4.2)', () =>
   test('σ = 0 reproduces the futures formula', () => {
     const res = exit({ totalContracts: 6, partialContracts: 3, spreadR: 0 });
     expect(res.runnerLevelR).toBeCloseTo(1.2, 5);
-    expect(res.spreadCostUsd).toBe(0);
+    expect(res.spreadCost).toBe(0);
   });
 
   test('§4.2 fixture: p = 0.5, a = 0.8, σ = 0.14 → b = 1.76R', () => {
@@ -250,21 +250,21 @@ describe('computeExit — spread-aware runner TP (DESIGN-FOREX.md §4.2)', () =>
 
   test('net winner == T × net risk (true 1:1 after spread)', () => {
     const res = exit({ totalContracts: 35, partialContracts: 17, spreadR: 0.14 }, 7.5, 500);
-    const netRisk = -res.fullLossUsd;
+    const netRisk = -res.fullLossPnl;
     expect(res.blendedWinnerR).toBeCloseTo(1, 10);
-    expect(res.blendedWinnerUsd).toBeCloseTo(netRisk, 6);
+    expect(res.blendedWinnerPnl).toBeCloseTo(netRisk, 6);
   });
 
   test('outcomes are net of spread', () => {
     // C=4, k=2, R$=100/step, σ=0.1
-    const params = { dollarPerPoint: 1, stopPoints: 100 };
+    const params = { valuePerPoint: 1, stopPoints: 100 };
     const base = { totalContracts: 4, partialContracts: 2, partialLevelR: 0.8, targetRR: 1 };
     const off = computeExit({ ...base, stopToBreakeven: false, spreadR: 0.1 }, params);
     const be = computeExit({ ...base, stopToBreakeven: true, spreadR: 0.1 }, params);
-    expect(off.fullLossUsd).toBeCloseTo(-440, 6); // 4 × 1.1 × 100
-    expect(off.spreadCostUsd).toBeCloseTo(40, 6);
-    expect(off.partialThenStallUsd).toBeCloseTo(2 * 0.7 * 100 - 2 * 1.1 * 100, 6); // −80
-    expect(be.partialThenStallUsd).toBeCloseTo(2 * 0.7 * 100 - 2 * 0.1 * 100, 6); // +120
+    expect(off.fullLossPnl).toBeCloseTo(-440, 6); // 4 × 1.1 × 100
+    expect(off.spreadCost).toBeCloseTo(40, 6);
+    expect(off.partialThenStallPnl).toBeCloseTo(2 * 0.7 * 100 - 2 * 1.1 * 100, 6); // −80
+    expect(be.partialThenStallPnl).toBeCloseTo(2 * 0.7 * 100 - 2 * 0.1 * 100, 6); // +120
   });
 
   test('partial that does not cover the spread is flagged', () => {
@@ -285,7 +285,7 @@ describe('computeExit — spread-aware runner TP (DESIGN-FOREX.md §4.2)', () =>
         direction: 'long',
         spreadR: 0.14,
       },
-      { dollarPerPoint: 1.5, stopPoints: 500, priceUnit: 0.01 },
+      { valuePerPoint: 1.5, stopPoints: 500, priceUnit: 0.01 },
     );
     expect(res.prices?.stop).toBeCloseTo(2645, 6);
     expect(res.prices?.partial).toBeCloseTo(2654, 6);

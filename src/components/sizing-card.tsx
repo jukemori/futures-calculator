@@ -1,13 +1,13 @@
 'use client';
 
-import { RotateCcw } from 'lucide-react';
 import type { SizingResult } from '@/lib/calc';
 import type { ContractSymbol } from '@/lib/contracts';
 import { formatUsd } from '@/lib/format';
-import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ContractSelect } from './contract-select';
 import { NumberField } from './number-field';
+import { ResetButton } from './reset-button';
+import { StepTitle } from './step-title';
 
 type Props = {
   contractSymbol: ContractSymbol;
@@ -19,7 +19,7 @@ type Props = {
   result: SizingResult;
   /** Whether any input has been touched — gates the reset affordance. */
   isDirty: boolean;
-  /** Reset every input across both stages back to defaults. */
+  /** Reset this mode's inputs across both stages back to defaults. */
   onClear: () => void;
 };
 
@@ -40,28 +40,8 @@ export function SizingCard({
   return (
     <Card className="min-h-0 lg:overflow-y-auto">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-          <span className="grid size-5 place-items-center rounded-md bg-primary/10 text-primary">
-            1
-          </span>
-          Size
-        </CardTitle>
-        {/* Reset lives at the point of input, not in the app-chrome corner — and
-            only appears once there's something to clear (§6.3). */}
-        {isDirty ? (
-          <CardAction>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onClear}
-              className="-my-1 cursor-pointer gap-1.5 text-xs text-muted-foreground"
-            >
-              <RotateCcw className="size-3.5" />
-              Reset
-            </Button>
-          </CardAction>
-        ) : null}
+        <StepTitle n={1}>Size</StepTitle>
+        {isDirty ? <ResetButton onClick={onClear} /> : null}
       </CardHeader>
       <CardContent className="grid gap-3">
         <div className="grid grid-cols-2 gap-3">
@@ -99,7 +79,7 @@ export function SizingCard({
                 <div>
                   ${dollarPerPoint}/pt · R{' '}
                   <span className="font-semibold text-foreground">
-                    {formatUsd(riskPerContract).replace('+', '')}
+                    {formatUsd(riskPerContract, { sign: false })}
                   </span>
                 </div>
                 {leftover > 0.02 ? (

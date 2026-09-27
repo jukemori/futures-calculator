@@ -9,19 +9,16 @@ type Props = {
   onClose: () => void;
 };
 
+// Step 1 is the only one that differs between modes.
 const SIZE_STEP: Record<Mode, string> = {
   futures:
     'Enter your contract, the dollars you’re risking, and how far your stop-loss sits from entry. You get whole contracts — micros can’t be split.',
   forex:
-    'Pick NAS100 or XAUUSD, the yen you’re risking, your stop-loss and the spread in pips. The spread is added to your risk, and you get lots rounded down to OANDA’s lot step.',
+    'Pick XAUUSD or NAS100, the yen you’re risking, your stop-loss and the spread in pips. The spread is added to your risk, and you get lots rounded down to OANDA’s lot step.',
 };
 
-const STEPS = [
-  {
-    n: '1',
-    title: 'Size your position',
-    body: '',
-  },
+const stepsFor = (mode: Mode) => [
+  { n: '1', title: 'Size your position', body: SIZE_STEP[mode] },
   {
     n: '2',
     title: 'Plan the exit',
@@ -69,16 +66,14 @@ export function HowItWorks({ mode, onClose }: Props) {
       <h2 className="pr-8 text-sm font-semibold">New here? Here’s what this tool does</h2>
 
       <ol className="mt-3 grid gap-3 sm:grid-cols-3">
-        {STEPS.map((s) => (
+        {stepsFor(mode).map((s) => (
           <li key={s.n} className="flex gap-2.5">
             <span className="grid size-5 shrink-0 place-items-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
               {s.n}
             </span>
             <div>
               <div className="text-sm font-medium">{s.title}</div>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                {s.n === '1' ? SIZE_STEP[mode] : s.body}
-              </p>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{s.body}</p>
             </div>
           </li>
         ))}

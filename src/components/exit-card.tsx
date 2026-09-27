@@ -2,95 +2,31 @@
 
 import { useId } from 'react';
 import type { ExitResult } from '@/lib/calc';
-import { formatPct, formatPrice, formatR, formatUsd } from '@/lib/format';
+import { formatPct, formatPrice, formatR } from '@/lib/format';
+import { PRESETS, type Preset } from '@/lib/presets';
+import type { Direction } from '@/hooks/use-exit-inputs';
+import type { ModePlan } from '@/hooks/use-exit-plan';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { InfoHint } from './info-hint';
 import { NumberField } from './number-field';
 import { OutcomeRow } from './outcome-row';
+import { StepTitle } from './step-title';
 import { Stepper } from './stepper';
 
-export type Preset = { label: string; a: number; fraction: number; t: number };
-
-export const PRESETS = [
-  { label: '50% @ 0.8R', a: 0.8, fraction: 0.5, t: 1 },
-  { label: '80% @ 0.8R', a: 0.8, fraction: 0.8, t: 1 },
-  { label: 'Runner only', a: 0.8, fraction: 0, t: 1 },
-] as const satisfies readonly Preset[];
-
-/** What the card counts and pays in — whole contracts/$/pts for futures,
- *  lot steps/¥/pips for forex (DESIGN-FOREX.md §5.3). */
-export type ExitUnits = {
-  money: (n: number) => string;
-  /** C and k are integer size steps; this renders a step count for display. */
-  size: (steps: number) => string;
-  sizeNoun: (steps: number) => string; // 'contract' / 'contracts' / 'lots'
-  sizeTitle: string; // 'Contracts' / 'Lots'
-  stepScale: number; // size units per step (1, or the lot step)
-  stepDecimals: number;
-  dist: string; // 'pts' / 'pips'
-  price: (n: number) => string;
-  entryPlaceholder: string;
-  hintSizeSplit: string; // why the % is derived, not chosen
-};
-
-export const FUTURES_UNITS: ExitUnits = {
-  money: formatUsd,
-  size: (n) => String(n),
-  sizeNoun: (n) => (n === 1 ? 'contract' : 'contracts'),
-  sizeTitle: 'Contracts',
-  stepScale: 1,
-  stepDecimals: 0,
-  dist: 'pts',
-  price: formatPrice,
-  entryPlaceholder: '4185.0',
-  hintSizeSplit: 'you can’t split a whole micro.',
-};
-
 type Props = {
-  /** Stage-1 context line, e.g. "MGC · $10/pt · R $185". Empty → not sized yet. */
-  context: string;
-  symbol: string;
-  units: ExitUnits;
-  /** R in money per size step, net of spread — denominator for per-row R. */
-  netRiskPerStep: number;
-  totalContracts: number; // effective C — driven by sizing (①)
-  partialContracts: number; // k
-  partialLevelStr: string; // a
-  targetRRStr: string; // T
-  stopToBreakeven: boolean;
-  entryStr: string;
-  direction: 'long' | 'short';
+  /** The active mode's stage-① output and stage-② inputs (units, C, R, setters). */
+  plan: ModePlan;
+  partialContracts: number; // k, already clamped to 0…C
   result: ExitResult;
-  onPartial: (n: number) => void;
-  onPartialLevel: (s: string) => void;
-  onTargetRR: (s: string) => void;
-  onStopToBreakeven: (b: boolean) => void;
-  onEntry: (s: string) => void;
-  onDirection: (d: 'long' | 'short') => void;
   onPreset: (p: Preset) => void;
 };
 
-export function ExitCard(props: Props) {
-  const {
-    context,
-    symbol,
-    units,
-    netRiskPerStep,
-    totalContracts: C,
-    partialContracts: k,
-    partialLevelStr,
-    targetRRStr,
-    stopToBreakeven,
-    entryStr,
-    direction,
-    result,
-    onPartial,
-    onPreset,
-  } = props;
+export function ExitCard({ plan, partialContracts: k, result, onPreset }: Props) {
+  const { context, symbol, units, netRiskPerStep, totalSteps: C, exitInputs: ex } = plan;
 
   const beId = useId();
   const disabled = !result.valid; // C ≤ 0
@@ -100,12 +36,7 @@ export function ExitCard(props: Props) {
   return (
     <Card className="min-h-0 lg:overflow-y-auto">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-          <span className="grid size-5 place-items-center rounded-md bg-primary/10 text-primary">
-            2
-          </span>
-          Exit plan
-        </CardTitle>
+        <StepTitle n={2}>Exit plan</StepTitle>
         {/* explicit link to Stage 1 — contract/risk/stop drive every number below */}
         <span className="font-mono text-xs text-muted-foreground/80">
           {context || `${symbol} · size a position →`}
@@ -153,8 +84,8 @@ export function ExitCard(props: Props) {
         <div className="grid grid-cols-2 gap-3">
           <NumberField
             label="Take off @ (R)"
-            value={partialLevelStr}
-            onChange={props.onPartialLevel}
+            value={ex.partialLevelStr}
+            onChange={ex.setPartialLevel}
             suffix="R"
             placeholder="0.8"
             hint={
@@ -166,8 +97,8 @@ export function ExitCard(props: Props) {
           />
           <NumberField
             label="Target RR"
-            value={targetRRStr}
-            onChange={props.onTargetRR}
+            value={ex.targetRRStr}
+            onChange={ex.setTargetRR}
             suffix="R"
             placeholder="1.0"
             hint={
@@ -184,7 +115,7 @@ export function ExitCard(props: Props) {
           value={k}
           min={0}
           max={Math.max(0, C)}
-          onChange={onPartial}
+          onChange={ex.setPartial}
           disabled={disabled}
           scale={units.stepScale}
           decimals={units.stepDecimals}
@@ -208,9 +139,9 @@ export function ExitCard(props: Props) {
           </Label>
           <Switch
             id={beId}
-            checked={stopToBreakeven}
+            checked={ex.stopToBreakeven}
             disabled={disabled}
-            onCheckedChange={props.onStopToBreakeven}
+            onCheckedChange={ex.setStopBE}
           />
         </div>
 
@@ -240,7 +171,7 @@ export function ExitCard(props: Props) {
             </div>
           ) : (
             <div className="mt-1 font-mono text-2xl">
-              no runner — full exit at {formatR(Number(partialLevelStr) || 0)}
+              no runner — full exit at {formatR(Number(ex.partialLevelStr) || 0)}
             </div>
           )}
         </div>
@@ -258,29 +189,29 @@ export function ExitCard(props: Props) {
             {result.hasRunner ? (
               <OutcomeRow
                 label="If runner hits"
-                usd={result.blendedWinnerUsd}
+                amount={result.blendedWinnerPnl}
                 rDenominator={rDenom}
                 format={units.money}
                 tone="gain"
               />
             ) : null}
             <OutcomeRow
-              label={stopToBreakeven ? 'Partial + stall (BE)' : 'Partial + stall'}
-              usd={result.partialThenStallUsd}
+              label={ex.stopToBreakeven ? 'Partial + stall (BE)' : 'Partial + stall'}
+              amount={result.partialThenStallPnl}
               rDenominator={rDenom}
               format={units.money}
-              tone={result.partialThenStallUsd >= 0 ? 'neutral' : 'loss'}
+              tone={result.partialThenStallPnl >= 0 ? 'neutral' : 'loss'}
             />
             <OutcomeRow
               label="Full stop"
-              usd={result.fullLossUsd}
+              amount={result.fullLossPnl}
               rDenominator={rDenom}
               format={units.money}
               tone="loss"
             />
-            {result.spreadCostUsd > 0 ? (
+            {result.spreadCost > 0 ? (
               <p className="pt-1 pb-1 text-xs text-muted-foreground/80">
-                Spread costs {units.money(result.spreadCostUsd).replace('+', '')} on this trade —
+                Spread costs {units.money(result.spreadCost, { sign: false })} on this trade —
                 already in every row above and in the runner TP.
               </p>
             ) : null}
@@ -302,14 +233,14 @@ export function ExitCard(props: Props) {
         <div className="grid grid-cols-[1fr_auto] items-end gap-3 border-t pt-4">
           <NumberField
             label="Entry price (optional)"
-            value={entryStr}
-            onChange={props.onEntry}
+            value={ex.entryStr}
+            onChange={ex.setEntry}
             placeholder={units.entryPlaceholder}
           />
           <ToggleGroup
             type="single"
-            value={direction}
-            onValueChange={(v) => v && props.onDirection(v as 'long' | 'short')}
+            value={ex.direction}
+            onValueChange={(v) => v && ex.setDirection(v as Direction)}
             variant="outline"
             className="h-10"
           >
