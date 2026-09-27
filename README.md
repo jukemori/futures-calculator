@@ -97,10 +97,13 @@ pnpm dev          # http://localhost:3000
 
 ```
 src/
-  app/          layout, globals.css (theme tokens), page.tsx (composition + state)
-  components/   sizing-card, fx-sizing-card, exit-card, mode-toggle, stepper, number-field,
-                how-it-works (onboarding explainer), info-hint (ⓘ tooltip), …
+  app/          layout, globals.css (theme tokens), page.tsx (composition only)
+  hooks/        use-futures-plan / use-forex-plan (each mode's inputs + sizing → a ModePlan),
+                use-exit-plan (stage ② from a ModePlan), use-exit-inputs, use-usd-jpy
+  components/   sizing-card, fx-sizing-card, exit-card, mode-toggle, usd-jpy-field, stepper,
+                number-field, how-it-works (onboarding explainer), info-hint (ⓘ tooltip), …
                 + ui/ (shadcn primitives, incl. tooltip)
   lib/          calc.ts (all math), contracts.ts (futures table), instruments.ts (OANDA table),
-                fx-rate.ts (live USD/JPY), format.ts, storage.ts
+                units.ts ($/pts vs ¥/pips display), presets.ts, fx-rate.ts (USD/JPY fetch),
+                format.ts, storage.ts
 ```

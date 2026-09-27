@@ -439,7 +439,7 @@ src/
   app/
     layout.tsx            // fonts, tabular-nums base, no-flash theme script
     globals.css           // shadcn token system, re-skinned (indigo/slate/emerald oklch)
-    page.tsx              // composition + state + clear; wires cards together
+    page.tsx              // composition only — picks the active mode's plan, wires cards
   components/
     ui/                   // shadcn primitives (copied in): button, input, label,
                           //   select, card, switch, toggle-group, badge, tooltip
@@ -452,6 +452,10 @@ src/
     HowItWorks.tsx        // dismissible first-timer explainer (flow + glossary), header-toggled
     InfoHint.tsx          // ⓘ icon + ui/tooltip — inline definition for a jargon label
     ThemeToggle.tsx       // light/dark, persisted
+  hooks/
+    use-futures-plan.ts   // futures inputs + sizing → ModePlan (forex: use-forex-plan.ts)
+    use-exit-plan.ts      // stage ② from any ModePlan; presets
+    use-exit-inputs.ts    // persisted k / a / T / BE / entry / direction per mode
   lib/
     calc.ts               // computeSizing, computeExit — ALL math here
     contracts.ts          // the lookup table (source of truth) + ContractSymbol

@@ -179,7 +179,7 @@ are chart (bid-for-long) levels — the spread is already in the math, so orders
 
 - Fetched once on load and every 60 s while the tab is visible, from a free no-key, CORS-enabled
   FX endpoint: Coinbase `exchange-rates` (≈1-min updates), falling back to open.er-api.com
-  (daily). The fetch lives in one `lib/fx-rate.ts` hook.
+  (daily). The fetch lives in `lib/fx-rate.ts`; `hooks/use-usd-jpy.ts` wraps it.
 - Shown as `USD/JPY 150.23 · live 12:37`. Last good rate is persisted, so offline/fetch
   failure falls back to it with a `stale` badge — sizing never goes blank because of a network
   hiccup.
@@ -237,10 +237,10 @@ breakdown gains one line when `σ > 0`: _"Spread costs ¥X on this trade (Y% of 
 | `lib/instruments.ts` (new)  | OANDA table: `symbol, usdPerPoint, pipSize, minLot, lotStep, precision, spread` |
 | `lib/calc.ts`               | `computeSizing` gains `lotStep` + `spread`; `computeExit` gains `spreadR` (σ)   |
 | `lib/format.ts`             | `formatYen`, `formatLots`; money formatter chosen by mode                       |
-| `lib/fx-rate.ts` (new)      | `useUsdJpy()` — live fetch, 60 s refresh, persisted fallback, manual override   |
+| `lib/fx-rate.ts` (new)      | `fetchUsdJpy()`; `hooks/use-usd-jpy.ts` adds 60 s refresh, fallback, override   |
 | `components/mode-toggle`    | new header segmented control                                                    |
 | `sizing-card` / `exit-card` | receive a small `units` object (`{ money: '¥', size: 'lots', dist: 'pips' }`)   |
-| `app/page.tsx`              | `mode` state; picks the instrument table + persisted key prefix                 |
+| `hooks/use-*-plan.ts`       | each mode builds a `ModePlan`; `app/page.tsx` just picks the active one         |
 
 Futures calls pass `lotStep = 1, spread = 0, fx = 1` → behavior unchanged, existing 28 tests
 must pass untouched.
