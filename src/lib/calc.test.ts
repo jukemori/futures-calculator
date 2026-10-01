@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { computeExit, computeFxSizing, computeSizing, type ExitInput } from './calc';
+import { getInstrument, pointsToPips } from './instruments';
 
 const exit = (over: Partial<ExitInput>, valuePerPoint = 10, stopPoints = 1) =>
   computeExit(
@@ -291,5 +292,14 @@ describe('computeExit — spread-aware runner TP (DESIGN-FOREX.md §4.2)', () =>
     expect(res.prices?.partial).toBeCloseTo(2654, 6);
     expect(res.prices?.runner).toBeCloseTo(2650 + 1.76 * 5, 6);
     expect(res.runnerTravelPoints).toBeCloseTo(880, 6); // pips
+  });
+});
+
+describe('pointsToPips — MT5 spread figure → OANDA pips', () => {
+  test('XAUUSD: 3-digit quote, 490 pts = 49 pips ($0.49)', () => {
+    expect(pointsToPips(getInstrument('XAUUSD')!, 490)).toBeCloseTo(49, 10);
+  });
+  test('NAS100: 23 pts = 2.3 pips', () => {
+    expect(pointsToPips(getInstrument('NAS100')!, 23)).toBeCloseTo(2.3, 10);
   });
 });
