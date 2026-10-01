@@ -37,7 +37,8 @@ stages for **XAUUSD** and **NAS100** (OANDA's US100) on a yen account:
 - **Pips, OANDA's definition** — XAUUSD 1 pip = `$0.01`, NAS100 1 pip = `1.0`. The hint under the
   SL input shows the conversion (`500 pips = $5.00`).
 - **Lots, not contracts** — floored to OANDA's lot step (0.01 for XAUUSD, 0.1 for NAS100).
-- **Spread included** — entered in pips (remembered per instrument). It's added to the risk, and
+- **Spread included** — entered in **MT5 points**, exactly as Market Watch → Details shows it
+  (XAUUSD quotes to 3 digits, so `490 pts = 49 pips = $0.49`), remembered per instrument. It's added to the risk, and
   the runner TP moves out so the trade is still a true 1:1 _after_ the spread:
   `b = (T·C·(1 + σ) + C·σ − k·a) / (C − k)`, where `σ = spread / SL`. At `σ = 0` it's the futures
   formula, so both modes share one engine.
@@ -45,7 +46,7 @@ stages for **XAUUSD** and **NAS100** (OANDA's US100) on a yen account:
   The last good rate is kept if a fetch fails, and you can override it manually.
 
 Each mode keeps its own saved inputs, so switching back and forth loses nothing; **Reset** clears
-only the active mode. Spreads at OANDA float — check the live one in MT5 (Ask − Bid) and adjust the
+only the active mode. Spreads at OANDA float — copy the live "Spread" figure from MT5 and adjust the
 default once.
 
 New to the jargon? A **How it works** button in the header opens a plain-language explainer (the
