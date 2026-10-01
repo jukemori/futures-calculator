@@ -2,7 +2,7 @@
 
 import type { FxSizingResult } from '@/lib/calc';
 import { formatLots, formatYen } from '@/lib/format';
-import type { InstrumentSymbol, ListedInstrument } from '@/lib/instruments';
+import { pointsToPips, type InstrumentSymbol, type ListedInstrument } from '@/lib/instruments';
 import { formatMove } from '@/lib/units';
 import type { UsdJpy } from '@/hooks/use-usd-jpy';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -31,6 +31,8 @@ type Props = {
 };
 
 const yenAbs = (n: number) => formatYen(n, { sign: false });
+// Point→pip conversion leaves float noise (490 × 0.001 / 0.01 = 48.99999…).
+const formatPips = (n: number) => String(Math.round(n * 100) / 100);
 
 /** Stage ① for Forex mode: risk ¥ + SL/spread in pips + live USD/JPY → lots
  *  (DESIGN-FOREX.md §3, §5.2). */
@@ -50,7 +52,8 @@ export function FxSizingCard({
 }: Props) {
   const { symbol, pipSize } = inst;
   const slPips = Number.parseFloat(stopStr);
-  const spreadPips = Number.parseFloat(spreadStr);
+  const spreadPoints = Number.parseFloat(spreadStr);
+  const spreadPips = Number.isFinite(spreadPoints) ? pointsToPips(inst, spreadPoints) : 0;
   const { valid, yenPerPipPerLot, riskPerLotYen, lots, exactLots, lotStep } = result;
   const leftover = exactLots - lots;
   const overMax = lots > inst.maxLotsPerOrder;
@@ -82,12 +85,13 @@ export function FxSizingCard({
             label="Spread"
             value={spreadStr}
             onChange={onSpread}
-            suffix="pips"
-            placeholder={String(inst.spreadPips)}
+            suffix="pts"
+            placeholder={String(inst.spreadPoints)}
             hint={
               <InfoHint label="Spread">
-                OANDA spreads float — read the current one off MT5. You pay it once per trade, so
-                it’s added to your risk and to every outcome.
+                In MT5 points — copy the “Spread” figure from Market Watch → Details. OANDA spreads
+                float, so read the current one. You pay it once per trade, so it’s added to your
+                risk and to every outcome.
               </InfoHint>
             }
           />
@@ -102,6 +106,16 @@ export function FxSizingCard({
               {' '}
               · {slPips} pips ={' '}
               <span className="text-muted-foreground">{formatMove(inst, slPips * pipSize)}</span>
+            </>
+          ) : null}
+          {spreadPoints > 0 ? (
+            <>
+              {' '}
+              · spread {spreadPoints} pts ={' '}
+              <span className="text-muted-foreground">{formatPips(spreadPips)} pips</span>
+              {inst.moveUnit === 'usd'
+                ? ` (${formatMove(inst, spreadPoints * inst.mt5Point)})`
+                : null}
             </>
           ) : null}
         </p>
@@ -123,7 +137,7 @@ export function FxSizingCard({
                   <span className="font-semibold text-foreground">{yenAbs(riskPerLotYen)}</span>
                 </div>
                 <div className="text-xs text-muted-foreground/80">
-                  SL {slPips} + spread {Number.isFinite(spreadPips) ? spreadPips : 0} pips
+                  SL {slPips} + spread {formatPips(spreadPips)} pips
                 </div>
                 {leftover > lotStep * 0.02 ? (
                   <div className="text-xs text-muted-foreground/80">

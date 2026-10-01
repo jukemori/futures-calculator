@@ -2,7 +2,7 @@
 
 import { computeFxSizing } from '@/lib/calc';
 import { formatYen } from '@/lib/format';
-import { DEFAULT_INSTRUMENT, getInstrument, INSTRUMENTS } from '@/lib/instruments';
+import { DEFAULT_INSTRUMENT, getInstrument, INSTRUMENTS, pointsToPips } from '@/lib/instruments';
 import { usePersistentState } from '@/lib/storage';
 import { forexUnits } from '@/lib/units';
 import { useExitInputs } from './use-exit-inputs';
@@ -15,20 +15,22 @@ export function useForexPlan() {
   const [instrumentSymbol, setInstrument] = usePersistentState('fx.instrument', DEFAULT_INSTRUMENT);
   const [riskStr, setRisk] = usePersistentState('fx.risk', '');
   const [stopStr, setStop] = usePersistentState('fx.stop', '');
-  // Spread is remembered per instrument — the two differ by an order of magnitude.
-  const [spreads, setSpreads] = usePersistentState<Record<string, string>>('fx.spread', {});
+  // Spread is remembered per instrument, in MT5 points — the two differ by an order of
+  // magnitude. (Was `fx.spread`, in pips; renamed so old values aren't misread as points.)
+  const [spreads, setSpreads] = usePersistentState<Record<string, string>>('fx.spreadPts', {});
   const exitInputs = useExitInputs('fx.');
   const usdJpy = useUsdJpy();
 
   const inst = getInstrument(instrumentSymbol) ?? INSTRUMENTS[0];
-  const spreadStr = spreads[instrumentSymbol] ?? String(inst.spreadPips);
+  const spreadStr = spreads[instrumentSymbol] ?? String(inst.spreadPoints);
   const slPips = Number.parseFloat(stopStr);
+  const spreadPips = pointsToPips(inst, Number.parseFloat(spreadStr));
 
   const sizing = computeFxSizing({
     instrumentSymbol,
     riskYen: Number.parseFloat(riskStr),
     slPips,
-    spreadPips: Number.parseFloat(spreadStr),
+    spreadPips,
     usdJpy: usdJpy.rate,
   });
 

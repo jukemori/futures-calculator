@@ -1,7 +1,9 @@
 // OANDA Japan CFD table for Forex mode (DESIGN-FOREX.md §2) — the forex
 // counterpart of contracts.ts. Pip sizes are OANDA's own (US100 in the
 // "1 pip = 1" group, XAUUSD in the "1 pip = 0.01" group). Spreads are variable
-// at OANDA, so `spreadPips` is only the pre-filled default; the input is editable.
+// at OANDA, so `spreadPoints` is only the pre-filled default; the input is editable.
+// The spread is entered in MT5 points — the "Spread" figure in Market Watch → Details —
+// so it can be copied straight off the terminal; sizing converts it to pips.
 
 export type Instrument = {
   symbol: string;
@@ -11,7 +13,8 @@ export type Instrument = {
   lotStep: number;
   maxLotsPerOrder: number;
   priceDecimals: number; // quote precision
-  spreadPips: number; // default spread (standard course, MT5)
+  mt5Point: number; // price units per MT5 point (1 / 10^digits of the MT5 quote)
+  spreadPoints: number; // default spread in MT5 points (standard course)
   /** How a price move reads for this instrument: gold in dollars, the index in points. */
   moveUnit: 'usd' | 'pt';
   slPlaceholder: string; // pips
@@ -28,7 +31,8 @@ export const INSTRUMENTS = [
     lotStep: 0.01,
     maxLotsPerOrder: 20,
     priceDecimals: 2,
-    spreadPips: 70,
+    mt5Point: 0.001, // MT5 quotes gold to 3 digits (4174.460) → 490 pts = $0.49
+    spreadPoints: 500,
     moveUnit: 'usd',
     slPlaceholder: '500',
     entryPlaceholder: '2650.00',
@@ -42,7 +46,8 @@ export const INSTRUMENTS = [
     lotStep: 0.1,
     maxLotsPerOrder: 1000,
     priceDecimals: 1,
-    spreadPips: 2.3,
+    mt5Point: 0.1,
+    spreadPoints: 23,
     moveUnit: 'pt',
     slPlaceholder: '100',
     entryPlaceholder: '21480.0',
@@ -58,6 +63,11 @@ const BY_SYMBOL = new Map(INSTRUMENTS.map((i) => [i.symbol, i]));
 
 export function getInstrument(symbol: string): ListedInstrument | undefined {
   return BY_SYMBOL.get(symbol as InstrumentSymbol);
+}
+
+/** MT5 points → the instrument's pips (XAUUSD: 490 pts = 49 pips). */
+export function pointsToPips(inst: Instrument, points: number): number {
+  return (points * inst.mt5Point) / inst.pipSize;
 }
 
 export const DEFAULT_INSTRUMENT: InstrumentSymbol = INSTRUMENTS[0].symbol; // XAUUSD
