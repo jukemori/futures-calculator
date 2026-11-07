@@ -46,7 +46,8 @@ stages for **XAUUSD** and **NAS100** (OANDA's US100) on a yen account:
   The last good rate is kept if a fetch fails, and you can override it manually.
 
 Each mode keeps its own saved inputs, so switching back and forth loses nothing; **Reset** clears
-only the active mode. Spreads at OANDA float — copy the live "Spread" figure from MT5 and adjust the
+only the active mode. Each browser tab keeps its own inputs too, so you can work different assets
+side by side; a new tab starts from the tab you edited last. Spreads at OANDA float — copy the live "Spread" figure from MT5 and adjust the
 default once.
 
 New to the jargon? A **How it works** button in the header opens a plain-language explainer (the
