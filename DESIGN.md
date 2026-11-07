@@ -424,8 +424,12 @@ the explainer never reappears once dismissed.
 - One `usePersistentState(field, default)` hook backs every value, stored under a single JSON key
   (`futures-calculator:v1`).
 - Implemented with **`useSyncExternalStore`** (subscribe to `storage` + a same-tab event, `getSnapshot`
-  from `localStorage` with a cached parse for referential stability, `getServerSnapshot` → defaults).
-  This avoids the hydration-mismatch trap of reading `localStorage` during render in an exported app.
+  from browser storage with a cached parse for referential stability, `getServerSnapshot` → defaults).
+  This avoids the hydration-mismatch trap of reading storage during render in an exported app.
+- **Inputs are per tab**, so two tabs can size different instruments. A tab reads its own
+  `sessionStorage` copy, seeded once from `localStorage`; each write also saves that tab's inputs to
+  `localStorage`, so a new tab or a reopened browser starts from the last-edited tab.
+- **`theme`, `help` and `fx.usdjpy.last` stay in `localStorage`** and sync live across tabs.
 - **Theme has a second read path:** the no-flash inline script (§5.3) reads the same key before paint;
   the hook then keeps `<html>.dark` in sync. Default is light, so SSR and first paint always agree.
 - **Clear** resets the input fields to defaults but deliberately leaves the persisted theme alone.
@@ -460,7 +464,7 @@ src/
     calc.ts               // computeSizing, computeExit — ALL math here
     contracts.ts          // the lookup table (source of truth) + ContractSymbol
     format.ts             // $/R/%/price display helpers
-    storage.ts            // useSyncExternalStore-backed localStorage hook
+    storage.ts            // useSyncExternalStore-backed per-tab storage hook
     utils.ts              // shadcn cn() — clsx + tailwind-merge
     calc.test.ts          // Vitest table tests against §3.2 / §3.3
 ```
