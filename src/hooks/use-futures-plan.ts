@@ -14,6 +14,9 @@ export function useFuturesPlan() {
   const [contractSymbol, setContract] = usePersistentState('contract', DEFAULT_CONTRACT);
   const [riskStr, setRisk] = usePersistentState('risk', '');
   const [stopStr, setStop] = usePersistentState('stop', '');
+  // Copy-trader account count (e.g. Apex accounts mirrored via Tradovate). It's a
+  // standing setup, not a per-trade input, so Reset leaves it alone.
+  const [accountsStr, setAccounts] = usePersistentState('accounts', '');
   const exitInputs = useExitInputs('');
 
   const stopPoints = Number.parseFloat(stopStr);
@@ -54,9 +57,11 @@ export function useFuturesPlan() {
       contractSymbol,
       riskStr,
       stopStr,
+      accountsStr,
       onContract: setContract,
       onRisk: setRisk,
       onStop: setStop,
+      onAccounts: setAccounts,
       result: sizing,
     },
   };

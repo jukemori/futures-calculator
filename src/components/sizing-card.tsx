@@ -5,6 +5,7 @@ import type { ContractSymbol } from '@/lib/contracts';
 import { formatUsd } from '@/lib/format';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ContractSelect } from './contract-select';
+import { InfoHint } from './info-hint';
 import { NumberField } from './number-field';
 import { ResetButton } from './reset-button';
 import { StepTitle } from './step-title';
@@ -13,9 +14,12 @@ type Props = {
   contractSymbol: ContractSymbol;
   riskStr: string;
   stopStr: string;
+  /** Number of copy-trader accounts; blank = 1. */
+  accountsStr: string;
   onContract: (s: ContractSymbol) => void;
   onRisk: (s: string) => void;
   onStop: (s: string) => void;
+  onAccounts: (s: string) => void;
   result: SizingResult;
   /** Whether any input has been touched — gates the reset affordance. */
   isDirty: boolean;
@@ -27,15 +31,19 @@ export function SizingCard({
   contractSymbol,
   riskStr,
   stopStr,
+  accountsStr,
   onContract,
   onRisk,
   onStop,
+  onAccounts,
   result,
   isDirty,
   onClear,
 }: Props) {
   const { valid, dollarPerPoint, riskPerContract, contracts, exactContracts } = result;
   const leftover = exactContracts - contracts; // fractional contract you can't take
+  const parsedAccounts = Number.parseInt(accountsStr, 10);
+  const accounts = Number.isFinite(parsedAccounts) && parsedAccounts > 1 ? parsedAccounts : 1;
 
   return (
     <Card className="min-h-0 lg:overflow-y-auto">
@@ -59,6 +67,19 @@ export function SizingCard({
             onChange={onStop}
             suffix="pts"
             placeholder="18.5"
+          />
+          <NumberField
+            label="Accounts"
+            value={accountsStr}
+            onChange={onAccounts}
+            inputMode="numeric"
+            placeholder="1"
+            hint={
+              <InfoHint label="Accounts">
+                How many accounts your copy trader mirrors to (e.g. Apex accounts via Tradovate).
+                Risk $ is per account; the total is what fills across all of them.
+              </InfoHint>
+            }
           />
         </div>
 
@@ -94,6 +115,20 @@ export function SizingCard({
               Enter a contract, risk $ and your SL distance from entry to size your position.
             </p>
           )}
+          {valid && accounts > 1 ? (
+            <div className="mt-2 flex items-baseline justify-between border-t border-border pt-2 text-sm">
+              <span className="text-muted-foreground">
+                × {accounts} accounts ·{' '}
+                {formatUsd(contracts * riskPerContract * accounts, { sign: false })} total risk
+              </span>
+              <span>
+                <span className="font-mono text-2xl font-bold tabular-nums">
+                  {contracts * accounts}
+                </span>{' '}
+                <span className="text-muted-foreground">total</span>
+              </span>
+            </div>
+          ) : null}
         </div>
       </CardContent>
     </Card>
