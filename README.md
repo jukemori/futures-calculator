@@ -27,6 +27,13 @@ no market quotes — the only live number is the USD/JPY rate in Forex mode.
 3. **Honest breakdown** — what each plan actually pays: runner-hits, partial-then-stall (with a
    break-even toggle that flips the whole risk story), and full-stop — each in R and dollars.
 
+### Copy-trader accounts (futures)
+
+If you copy one trade across several accounts (e.g. Apex accounts via Tradovate's copy trader),
+enter the count in **Accounts**. Risk $ stays per account; the result box adds the **total
+contracts** across all accounts (and total risk) — the size to put on the copier. Blank or `1`
+hides it, and Reset leaves the count alone since it's a standing setup.
+
 ### Forex mode (OANDA Japan)
 
 A **Futures | Forex** toggle in the header switches instrument sets. Forex mode runs the same two
